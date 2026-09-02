@@ -1,6 +1,6 @@
 # SecureCode AI
 
-SecureCode AI is a local security-analysis platform. Milestone 3 provides a secure Python source upload pipeline on top of the SQLAlchemy persistence layer.
+SecureCode AI is a local security-analysis platform. Milestone 4 adds deterministic Bandit security analysis on top of the secure Python source upload and SQLAlchemy persistence layers.
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The page reports service health and provides the Python upload form. The API endpoint is http://localhost:8000/api/health.
+Open http://localhost:3000. The page reports service health, provides the Python upload form, and displays the completed scan finding count. The API endpoint is http://localhost:8000/api/health.
 
 ## Secure upload
 
@@ -73,7 +73,20 @@ The maximum upload size is 5 MB by default (`MAX_UPLOAD_SIZE_BYTES=5242880`). Th
 
 Files are written to the configurable `UPLOAD_DIR`, which defaults to the operating system temporary directory under `securecode-ai`. Storage names are generated UUIDs with a `.py` suffix, never the user-provided filename. The temporary file is retained for the upcoming scanner pipeline and is not permanent user storage.
 
-Uploaded Python is treated as data only. Milestone 3 introduces no subprocesses, imports, dynamic execution, scanner, or AI behavior. Invalid extensions, traversal-style filenames, missing files, oversized files, storage failures, and database failures are handled without exposing filesystem or database internals.
+Uploaded Python is treated as data only. Bandit performs static analysis through a safe subprocess; the source is never imported or executed. Invalid extensions, traversal-style filenames, missing files, oversized files, storage failures, scanner failures, and database failures are handled without exposing filesystem or database internals.
+
+## Bandit analysis
+
+Bandit `1.9.4` is invoked with JSON output and a 30-second configurable timeout (`SCANNER_TIMEOUT_SECONDS`). Valid JSON is parsed even when Bandit returns a non-zero exit code because findings exist. Findings are normalized into the application Finding model, persisted with raw Bandit metadata, and used to calculate scan severity counts. Bandit's LOW, MEDIUM, and HIGH severity/confidence values retain their semantics; no CRITICAL findings are fabricated.
+
+After scanning, temporary files are deleted regardless of success, findings, timeout, malformed output, scanner startup failure, or persistence failure.
+
+Results can be retrieved through:
+
+```text
+GET /api/scans/{scan_id}
+GET /api/scans/{scan_id}/findings
+```
 
 ## Tests and checks
 
@@ -93,4 +106,4 @@ npm run typecheck
 npm run build
 ```
 
-Scanners, findings APIs, and AI behavior are intentionally not part of Milestone 3. Bandit begins in Milestone 4.
+The findings dashboard, filtering, and detailed finding UI are intentionally not part of Milestone 4. They begin in Milestone 5.

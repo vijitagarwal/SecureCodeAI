@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.repositories.scan_repository import create_scan
+from app.scanners.bandit import BanditScanner
 from app.schemas.scan import ScanUploadResponse
+from app.services.scanner_service import run_scan
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +51,14 @@ async def upload_python_file(db: Session, upload: UploadFile | None) -> ScanUplo
 
         db.commit()
         db.refresh(scan)
-        return ScanUploadResponse(scan_id=scan.id, status=scan.status, filename=filename)
+        run_scan(db, scan, str(upload_path), BanditScanner())
+        db.refresh(scan)
+        return ScanUploadResponse(
+            scan_id=scan.id,
+            status=scan.status,
+            filename=filename,
+            total_findings=scan.total_findings,
+        )
     except HTTPException:
         db.rollback()
         if upload_path:

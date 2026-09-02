@@ -12,6 +12,7 @@ type UploadResponse = {
   scan_id: number;
   status: string;
   filename: string;
+  total_findings: number;
 };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -93,6 +94,7 @@ export default function Home() {
             <div><dt>Scan ID</dt><dd>{uploadResult.scan_id}</dd></div>
             <div><dt>Status</dt><dd>{uploadResult.status}</dd></div>
             <div><dt>Filename</dt><dd>{uploadResult.filename}</dd></div>
+            <div><dt>Findings</dt><dd>{uploadResult.total_findings}</dd></div>
           </dl>
         )}
       </section>
