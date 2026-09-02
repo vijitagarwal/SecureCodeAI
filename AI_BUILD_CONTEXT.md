@@ -8,9 +8,9 @@ The authoritative product roadmap remains `SECURECODE_AI_COPILOT_BUILD_PLAN.md`.
 
 ## Current milestone
 
-Milestone 3 is implemented and verified. Do not begin Milestone 4 or later until explicitly authorized.
+Milestone 4 is implemented and verified. Do not begin Milestone 5 or later until explicitly authorized.
 
-### Milestones 1 through 3 scope completed
+### Milestones 1 through 4 scope completed
 
 - Root Git repository initialized.
 - Backend scaffold created with FastAPI.
@@ -32,13 +32,16 @@ Milestone 3 is implemented and verified. Do not begin Milestone 4 or later until
 - Upload validation, configurable 5 MB limit, UUID temporary storage, cleanup, and queued Scan creation added.
 - Minimal frontend upload form added with success and error states.
 - Upload API tests added for valid, invalid, oversized, missing, traversal, and non-execution cases.
+- Bandit 1.9.4 added as a backend dependency.
+- Security scanner abstraction, Bandit adapter, scan service, result APIs, and integration tests added.
+- Architecture documentation added.
 
 ### Intentionally not implemented yet
 
-These belong to later milestones and must not be added as part of Milestone 3 maintenance:
+These belong to later milestones and must not be added as part of Milestone 4 maintenance:
 
 - Scan and Finding APIs
-- Bandit or Gitleaks scanning
+- Gitleaks or other scanner integrations
 - Scanner subprocess execution
 - AI/LLM providers
 - RAG, authentication, Git repository scanning, CI/CD, or analytics
@@ -197,6 +200,7 @@ POST /api/scans
 - Delegates upload validation, temporary storage, and Scan creation to `upload_service.py`.
 - Returns `201` with `scan_id`, `status`, and the original `filename`.
 - Does not expose the temporary filesystem path.
+- Exposes `GET /api/scans/{scan_id}` and `GET /api/scans/{scan_id}/findings` using repository-backed Pydantic responses.
 
 ### `backend/app/services/upload_service.py`
 
@@ -208,6 +212,20 @@ POST /api/scans
 - Closes the `UploadFile` in all cases.
 - Stores the original filename in `Scan.name` as metadata. The temporary file remains for the future scanner pipeline and is not permanent storage.
 - Never imports, executes, evaluates, dynamically loads, or subprocesses uploaded source.
+
+### `backend/app/scanners/`
+
+- `base.py` defines the `SecurityScanner` contract and normalized scanner result/finding dataclasses.
+- `bandit.py` invokes `sys.executable -m bandit -f json <target>` with `shell=False`, `stdin=DEVNULL`, captured output, `check=False`, and a configurable timeout.
+- Valid Bandit JSON remains usable when findings cause a non-zero exit code. Missing output, malformed JSON, invalid finding data, startup failure, and timeout become scanner errors.
+- Bandit LOW/MEDIUM/HIGH severity and confidence values map directly to application enums. Bandit has no CRITICAL category, so none is fabricated.
+- Original Bandit finding objects are preserved in `raw_metadata`.
+
+### `backend/app/services/scanner_service.py`
+
+- Transitions scans from `queued` to `running`, persists normalized findings, calculates counts, and transitions to `completed`.
+- Scanner or persistence failures transition scans to `failed`.
+- Always removes the temporary upload path after scanning.
 
 Typical healthy response:
 
@@ -243,7 +261,7 @@ Typical local response when Docker/PostgreSQL is unavailable:
 
 ### Upload UI
 
-The home page now includes a minimal Python upload form. It submits `FormData` to the backend and displays the queued Scan ID, status, and filename. It does not display findings or scanner results.
+The home page includes a minimal Python upload form. It submits `FormData` to the backend and displays the Scan ID, completed/failed status, filename, and actual finding count. It does not implement the Milestone 5 findings dashboard.
 
 ### Styling
 
@@ -329,13 +347,14 @@ npm run build
 
 ## Verification completed
 
-The following checks passed during Milestone 1, Milestone 2, and Milestone 3 implementation:
+The following checks passed during Milestone 1 through Milestone 4 implementation:
 
-- Backend suite: `15 passed`, including the health, persistence, and secure upload tests.
-- Upload API was manually verified through the browser: a Python file returned `Scan ID 1`, `queued`, and its original filename.
-- OpenAPI exposes `POST /api/scans` as `multipart/form-data`.
-- Temporary storage used a generated UUID filename and did not touch `frontend/public`.
-- An uploaded file containing `raise RuntimeError(...)` was stored as data only; no execution path was introduced.
+- Backend suite: `24 passed`, including health, persistence, upload, Bandit, and API integration tests.
+- Bandit 1.9.4 was installed and real scans generated findings from deliberately vulnerable Python.
+- Malformed output, timeout, missing executable, clean scan, vulnerable scan, and scanner failure tests passed.
+- Temporary files were removed after every scan outcome.
+- Browser upload verification displayed a completed Scan and actual finding count.
+- Live API verification produced `B105` with `LOW` severity for a deliberate hardcoded-password sample and zero findings for a clean sample.
 - Alembic migration: upgrade to `0001_scan_finding` and downgrade to `base` passed against an isolated temporary SQLite test database.
 - Frontend ESLint: passed.
 - Frontend TypeScript check: passed.
@@ -365,16 +384,16 @@ The missing Docker executable is an environment limitation, not an application f
 - The health route uses the shared SQLAlchemy engine and a parameter-free static SQL probe (`SELECT 1`).
 - Future scanner subprocesses must use argument arrays with `shell=False` and must never concatenate shell commands.
 
-## Next implementation: Milestone 4
+## Next implementation: Milestone 5
 
-The exact next milestone is **Milestone 4 - Bandit integration**.
+The exact next milestone is **Milestone 5 - Findings dashboard**.
 
 Implement only these items next:
 
-1. Define the security scanner interface.
-2. Run Bandit using structured JSON output.
-3. Parse Bandit output through a dedicated parser.
-4. Normalize scanner findings without inventing undocumented mappings.
+1. Build the findings results view.
+2. Add severity badges and finding cards.
+3. Display paths, line numbers, scanner, rule ID, descriptions, and snippets.
+4. Add severity filtering.
 
 Required persistence behavior:
 
@@ -384,7 +403,7 @@ Required persistence behavior:
 - Retrieve findings.
 - Retrieve a scan summary.
 
-Maintain the existing route/service/repository separation. Do not implement Gitleaks, other scanners, AI, or dashboard findings views until their specified milestones.
+Maintain the existing route/service/repository separation. Do not implement Gitleaks, other scanners, AI, or finding detail/AI views until their specified milestones.
 
 ## Handoff rules for future AI sessions
 
@@ -395,4 +414,4 @@ Maintain the existing route/service/repository separation. Do not implement Gitl
 5. Run focused tests after edits, then run the complete checks for the milestone.
 6. Do not claim PostgreSQL is healthy unless Docker and the database have actually been started and verified.
 7. Do not commit secrets, generated dependencies, `.env`, `.next`, or TypeScript build metadata.
-8. Stop and report after Milestone 4 verification; wait for explicit authorization before Milestone 5.
+8. Stop and report after Milestone 5 verification; wait for explicit authorization before Milestone 6.

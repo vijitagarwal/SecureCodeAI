@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     max_upload_size_bytes: int = 5 * 1024 * 1024
     upload_dir: str = f"{tempfile.gettempdir()}\\securecode-ai"
+    scanner_timeout_seconds: int = 30
 
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
 
