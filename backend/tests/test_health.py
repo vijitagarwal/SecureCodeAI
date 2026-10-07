@@ -28,3 +28,20 @@ def test_health_reports_backend_and_database(monkeypatch):
         "backend": {"status": "ok"},
         "database": {"status": "ok"},
     }
+
+
+def test_health_does_not_expose_database_error_details(monkeypatch):
+    class FakeEngine:
+        def connect(self):
+            raise RuntimeError("password=super-secret host=internal-db")
+
+    monkeypatch.setattr("app.api.routes.health.engine", FakeEngine())
+
+    response = TestClient(app).get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "degraded",
+        "backend": {"status": "ok"},
+        "database": {"status": "unavailable"},
+    }

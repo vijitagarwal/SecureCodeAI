@@ -1,6 +1,4 @@
 from datetime import datetime
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict
 
 from app.db.models import FindingConfidence, FindingSeverity
@@ -20,5 +18,4 @@ class FindingResponse(BaseModel):
     file_path: str
     line_number: int | None
     code_snippet: str | None
-    raw_metadata: dict[str, Any] | None
     created_at: datetime
