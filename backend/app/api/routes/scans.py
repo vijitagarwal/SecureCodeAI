@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -29,7 +29,12 @@ def read_scan(scan_id: int, db: Session = Depends(get_db)) -> ScanDetailResponse
 
 
 @router.get("/scans/{scan_id}/findings", response_model=list[FindingResponse])
-def read_scan_findings(scan_id: int, db: Session = Depends(get_db)) -> list[FindingResponse]:
+def read_scan_findings(
+    scan_id: int,
+    db: Session = Depends(get_db),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+) -> list[FindingResponse]:
     if get_scan(db, scan_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found.")
-    return get_findings_for_scan(db, scan_id)
+    return get_findings_for_scan(db, scan_id, offset=offset, limit=limit)

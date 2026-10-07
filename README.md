@@ -1,6 +1,6 @@
 # SecureCode AI
 
-SecureCode AI is a local security-analysis platform. Milestone 4 adds deterministic Bandit security analysis on top of the secure Python source upload and SQLAlchemy persistence layers.
+SecureCode AI is a local security-analysis platform for reviewing Python security findings. It accepts source as untrusted data, runs deterministic Bandit analysis without importing or executing the upload, persists normalized findings, and presents the results in a small functional dashboard.
 
 ## Prerequisites
 
@@ -10,13 +10,13 @@ SecureCode AI is a local security-analysis platform. Milestone 4 adds determinis
 
 ## Setup
 
-Copy `.env.example` to `.env` and set a local PostgreSQL password. Then start PostgreSQL:
+Copy `.env.example` to `.env` and set a local PostgreSQL password. The complete stack can then be started with:
 
 ```bash
-docker compose up -d
+docker compose up --build
 ```
 
-Start the backend in one terminal:
+The frontend is available at http://localhost:3000 and the API at http://localhost:8000. For a non-Docker backend setup, start PostgreSQL first and then run the backend:
 
 ```bash
 cd backend
@@ -41,11 +41,11 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The page reports service health, provides the Python upload form, and displays the completed scan finding count. The API endpoint is http://localhost:8000/api/health.
+Open http://localhost:3000. The page reports service health, provides the Python upload form, and displays persisted findings with severity filtering. The API endpoint is http://localhost:8000/api/health.
 
 ## Secure upload
 
-Milestone 3 accepts Python source files only through:
+The API accepts Python source files only through:
 
 ```text
 POST /api/scans
@@ -64,7 +64,7 @@ Successful uploads return:
 ```json
 {
 	"scan_id": 123,
-	"status": "queued",
+	"status": "completed",
 	"filename": "example.py"
 }
 ```
@@ -106,4 +106,4 @@ npm run typecheck
 npm run build
 ```
 
-The findings dashboard, filtering, and detailed finding UI are intentionally not part of Milestone 4. They begin in Milestone 5.
+The current dashboard provides upload, scan status, finding count, severity filtering, finding locations, scanner rule IDs, confidence, descriptions, and source snippets. AI remediation, authentication, and asynchronous job queues remain outside the current local MVP.

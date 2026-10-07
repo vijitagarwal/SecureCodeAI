@@ -11,7 +11,9 @@ from app.scanners.base import ScannerError, ScannerFinding, ScannerResult, Secur
 
 class BanditScanner(SecurityScanner):
     def __init__(self, timeout_seconds: int | None = None):
-        self.timeout_seconds = timeout_seconds or settings.scanner_timeout_seconds
+        self.timeout_seconds = timeout_seconds if timeout_seconds is not None else settings.scanner_timeout_seconds
+        if self.timeout_seconds <= 0:
+            raise ValueError("Bandit timeout must be positive.")
 
     def scan(self, target_path: str) -> ScannerResult:
         command = [sys.executable, "-m", "bandit", "-f", "json", target_path]
@@ -39,15 +41,24 @@ class BanditScanner(SecurityScanner):
         except json.JSONDecodeError as error:
             raise ScannerError("Bandit returned malformed JSON.") from error
 
-        findings = [self._parse_finding(item) for item in payload.get("results", [])]
+        if not isinstance(payload, dict):
+            raise ScannerError("Bandit returned an invalid JSON document.")
+        raw_results = payload.get("results", [])
+        if not isinstance(raw_results, list):
+            raise ScannerError("Bandit returned invalid finding data.")
+        findings = [self._parse_finding(item) for item in raw_results]
         return ScannerResult(
             findings=findings,
-            errors=[str(item) for item in payload.get("errors", [])],
+            errors=[str(item) for item in payload.get("errors", [])]
+            if isinstance(payload.get("errors", []), list)
+            else [],
             metadata={"exit_code": completed.returncode, "metrics": payload.get("metrics", {})},
         )
 
     @staticmethod
     def _parse_finding(item: dict[str, Any]) -> ScannerFinding:
+        if not isinstance(item, dict):
+            raise ScannerError("Bandit returned an invalid finding.")
         try:
             severity = FindingSeverity(str(item["issue_severity"]).upper())
             confidence = FindingConfidence(str(item["issue_confidence"]).upper())
@@ -56,7 +67,17 @@ class BanditScanner(SecurityScanner):
             title = str(item["issue_text"])
         except (KeyError, ValueError, TypeError) as error:
             raise ScannerError("Bandit returned an invalid finding.") from error
+        line_number = item.get("line_number")
+        if line_number is not None and (
+            isinstance(line_number, bool) or not isinstance(line_number, int) or line_number < 1
+        ):
+            raise ScannerError("Bandit returned an invalid line number.")
+        code_snippet = item.get("code")
+        if code_snippet is not None and not isinstance(code_snippet, str):
+            raise ScannerError("Bandit returned an invalid code snippet.")
 
+        raw_metadata = dict(item)
+        raw_metadata["filename"] = Path(file_path).name
         return ScannerFinding(
             tool="bandit",
             rule_id=rule_id,
@@ -65,7 +86,7 @@ class BanditScanner(SecurityScanner):
             severity=severity,
             confidence=confidence,
             file_path=Path(file_path).name,
-            line_number=item.get("line_number"),
-            code_snippet=item.get("code"),
-            raw_metadata=item,
+            line_number=line_number,
+            code_snippet=code_snippet,
+            raw_metadata=raw_metadata,
         )

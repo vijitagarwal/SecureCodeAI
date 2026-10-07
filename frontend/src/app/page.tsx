@@ -15,6 +15,18 @@ type UploadResponse = {
   total_findings: number;
 };
 
+type Finding = {
+  id: number;
+  rule_id: string;
+  title: string;
+  description: string;
+  severity: string;
+  confidence: string;
+  file_path: string;
+  line_number: number | null;
+  code_snippet: string | null;
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function Home() {
@@ -24,6 +36,9 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [findingsLoading, setFindingsLoading] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState("ALL");
 
   useEffect(() => {
     fetch(`${apiUrl}/api/health`)
@@ -45,6 +60,7 @@ export default function Home() {
     setUploading(true);
     setUploadError(null);
     setUploadResult(null);
+    setFindings([]);
     const formData = new FormData();
     formData.append("file", selectedFile);
 
@@ -53,10 +69,18 @@ export default function Home() {
       const payload = await response.json() as UploadResponse & { detail?: string };
       if (!response.ok) throw new Error(payload.detail ?? `Upload failed with status ${response.status}`);
       setUploadResult(payload);
+      setFindingsLoading(true);
+      const findingsResponse = await fetch(`${apiUrl}/api/scans/${payload.scan_id}/findings`);
+      const findingsPayload = await findingsResponse.json() as Finding[] & { detail?: string };
+      if (!findingsResponse.ok) {
+        throw new Error(findingsPayload.detail ?? `Findings could not be loaded (${findingsResponse.status})`);
+      }
+      setFindings(findingsPayload);
     } catch (requestError) {
       setUploadError(requestError instanceof Error ? requestError.message : "The upload failed.");
     } finally {
       setUploading(false);
+      setFindingsLoading(false);
     }
   }
 
@@ -98,6 +122,45 @@ export default function Home() {
           </dl>
         )}
       </section>
+      {uploadResult && (
+        <section className="findings-panel" aria-labelledby="findings-heading">
+          <div className="findings-header">
+            <div>
+              <p className="eyebrow">STATIC ANALYSIS RESULTS</p>
+              <h2 id="findings-heading">Security findings</h2>
+            </div>
+            <label className="filter-label">
+              Severity
+              <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
+                <option value="ALL">All severities</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+            </label>
+          </div>
+          {findingsLoading && <p className="form-message" role="status">Loading findings...</p>}
+          {!findingsLoading && findings.length === 0 && (
+            <p className="empty-state" role="status">No security findings were reported for this file.</p>
+          )}
+          <div className="finding-list">
+            {findings
+              .filter((finding) => severityFilter === "ALL" || finding.severity === severityFilter)
+              .map((finding) => (
+                <article className="finding-card" key={finding.id}>
+                  <div className="finding-card-header">
+                    <span className={`severity severity-${finding.severity.toLowerCase()}`}>{finding.severity}</span>
+                    <span className="finding-location">{finding.file_path}:{finding.line_number ?? "?"}</span>
+                  </div>
+                  <h3>{finding.title}</h3>
+                  <p>{finding.description}</p>
+                  <p className="finding-meta">{finding.rule_id} · {finding.confidence} confidence</p>
+                  {finding.code_snippet && <pre><code>{finding.code_snippet}</code></pre>}
+                </article>
+              ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

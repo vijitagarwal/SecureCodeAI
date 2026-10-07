@@ -105,6 +105,7 @@ def test_scan_and_findings_endpoints_return_persisted_results(upload_client):
     assert scan_response.json()["total_findings"] >= 1
     assert findings_response.status_code == 200
     assert findings_response.json()[0]["tool"] == "bandit"
+    assert "raw_metadata" not in findings_response.json()[0]
 
 
 def test_scanner_failure_marks_scan_failed_and_cleans_file(upload_client, monkeypatch):

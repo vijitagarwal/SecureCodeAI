@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Milestone 4 is complete. The current vertical slice accepts one Python source file, runs Bandit static analysis, persists normalized findings, and returns the completed scan summary. No source code is executed.
+The current vertical slice accepts one Python source file, runs Bandit static analysis, persists normalized findings, and displays the completed scan findings. No source code is executed.
 
 ## Scan pipeline
 
@@ -44,6 +44,9 @@ Scan counts and status: completed
   |
   v
 Temporary file cleanup
+  |
+  v
+Frontend findings dashboard
 ```
 
 If Bandit cannot produce usable JSON, the scan is marked `failed` and the temporary file is still removed.
@@ -96,6 +99,8 @@ GET /api/scans/{scan_id}/findings
 ```
 
 These return Pydantic response models rather than ORM objects directly.
+
+The Docker Compose stack contains PostgreSQL, the migration-running FastAPI backend, and the Next.js frontend. The backend waits for PostgreSQL health before applying migrations and starting.
 
 ## Security boundaries
 

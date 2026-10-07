@@ -22,8 +22,20 @@ def get_finding(db: Session, finding_id: int) -> Finding | None:
     return db.get(Finding, finding_id)
 
 
-def get_findings_for_scan(db: Session, scan_id: int) -> list[Finding]:
-    statement = select(Finding).where(Finding.scan_id == scan_id).order_by(Finding.id)
+def get_findings_for_scan(
+    db: Session,
+    scan_id: int,
+    *,
+    offset: int = 0,
+    limit: int = 100,
+) -> list[Finding]:
+    statement = (
+        select(Finding)
+        .where(Finding.scan_id == scan_id)
+        .order_by(Finding.id)
+        .offset(offset)
+        .limit(limit)
+    )
     return list(db.scalars(statement))
 
 

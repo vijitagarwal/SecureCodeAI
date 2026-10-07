@@ -20,7 +20,11 @@ CHUNK_SIZE = 1024 * 1024
 def _validate_filename(filename: str | None) -> str:
     if not filename or len(filename) > 255:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A valid filename is required.")
-    if "\x00" in filename or Path(filename).name != filename or PureWindowsPath(filename).name != filename:
+    if "\x00" in filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path separators are not allowed in filenames.")
+    if PureWindowsPath(filename).is_absolute():
+        filename = PureWindowsPath(filename).name
+    elif Path(filename).name != filename or PureWindowsPath(filename).name != filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path separators are not allowed in filenames.")
     if Path(filename).suffix.lower() != ".py":
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Only Python (.py) files are supported.")

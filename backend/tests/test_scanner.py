@@ -29,6 +29,7 @@ def test_bandit_actually_scans_python_file(tmp_path):
     assert finding.file_path == "vulnerable.py"
     assert finding.line_number == 1
     assert finding.raw_metadata["test_id"] == "B105"
+    assert finding.raw_metadata["filename"] == "vulnerable.py"
 
 
 def test_bandit_accepts_valid_json_when_findings_make_exit_nonzero(monkeypatch, tmp_path):
@@ -66,6 +67,17 @@ def test_bandit_rejects_malformed_json(monkeypatch, tmp_path):
     monkeypatch.setattr("app.scanners.bandit.subprocess.run", lambda *args, **kwargs: completed)
 
     with pytest.raises(ScannerError, match="malformed JSON"):
+        BanditScanner().scan(str(source_path))
+
+
+@pytest.mark.parametrize("payload", [[], {"results": {}}, {"results": [None]}])
+def test_bandit_rejects_invalid_result_shapes(monkeypatch, tmp_path, payload):
+    source_path = tmp_path / "example.py"
+    source_path.write_text("value = 1\n", encoding="utf-8")
+    completed = subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+    monkeypatch.setattr("app.scanners.bandit.subprocess.run", lambda *args, **kwargs: completed)
+
+    with pytest.raises(ScannerError, match="invalid"):
         BanditScanner().scan(str(source_path))
 
 
