@@ -1,6 +1,6 @@
 # SecureCode AI
 
-SecureCode AI is a local security-analysis platform for reviewing Python security findings. It accepts source as untrusted data, runs deterministic Bandit analysis without importing or executing the upload, persists normalized findings, and presents the results in a small functional dashboard.
+SecureCode AI is a local security-analysis platform for reviewing Python security findings. It accepts source as untrusted data, runs deterministic Bandit analysis without importing or executing the upload, enriches findings with conservative CWE/OWASP mappings, and provides a local structured AI-analysis workflow.
 
 ## Prerequisites
 
@@ -71,6 +71,8 @@ Successful uploads return:
 
 The maximum upload size is 5 MB by default (`MAX_UPLOAD_SIZE_BYTES=5242880`). The limit is configurable through backend environment variables. Only the `.py` extension is accepted, case-insensitively; the MIME type is not trusted as the validation mechanism.
 
+AI analysis defaults to the deterministic local provider (`AI_PROVIDER=mock`). No API key is required for local development.
+
 Files are written to the configurable `UPLOAD_DIR`, which defaults to the operating system temporary directory under `securecode-ai`. Storage names are generated UUIDs with a `.py` suffix, never the user-provided filename. The temporary file is retained for the upcoming scanner pipeline and is not permanent user storage.
 
 Uploaded Python is treated as data only. Bandit performs static analysis through a safe subprocess; the source is never imported or executed. Invalid extensions, traversal-style filenames, missing files, oversized files, storage failures, scanner failures, and database failures are handled without exposing filesystem or database internals.
@@ -106,4 +108,4 @@ npm run typecheck
 npm run build
 ```
 
-The current dashboard provides upload, scan status, finding count, severity filtering, finding locations, scanner rule IDs, confidence, descriptions, and source snippets. AI remediation, authentication, and asynchronous job queues remain outside the current local MVP.
+The current dashboard provides upload, scan status, finding count, severity filtering, finding locations, scanner rule IDs, confidence, CWE/OWASP classification, remediation guidance, and local mock AI analysis. The mock provider is deterministic and does not require credentials. Live provider integration, authentication, and asynchronous job queues remain outside the current local MVP.

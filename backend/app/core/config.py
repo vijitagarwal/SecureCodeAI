@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     max_upload_size_bytes: int = Field(default=5 * 1024 * 1024, gt=0)
     upload_dir: str = f"{tempfile.gettempdir()}\\securecode-ai"
     scanner_timeout_seconds: int = Field(default=30, gt=0)
+    ai_provider: str = "mock"
 
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
 

@@ -21,6 +21,8 @@ The backend tests use isolated SQLite fixtures where a live PostgreSQL service i
 
 Finding responses are paginated at the API boundary so a scan with many findings cannot produce an unbounded response.
 
+The default `AI_PROVIDER=mock` is deterministic and local, so analysis tests do not need an API key. Provider-specific integrations should be added behind `LLMProvider` and covered with fakes for malformed output, timeouts, and provider failures.
+
 ## Migrations
 
 Create and review Alembic migrations before changing persisted models. Do not recreate the production database to apply schema changes.
