@@ -108,6 +108,51 @@ def test_scan_and_findings_endpoints_return_persisted_results(upload_client):
     assert "raw_metadata" not in findings_response.json()[0]
 
 
+def test_finding_analysis_can_be_generated_and_retrieved(upload_client):
+    client, _, _ = upload_client
+    scan_response = client.post(
+        "/api/scans",
+        files={"file": ("example.py", b'password = "not-a-real-secret"\n', "text/x-python")},
+    )
+    finding_id = client.get(
+        f"/api/scans/{scan_response.json()['scan_id']}/findings"
+    ).json()[0]["id"]
+
+    create_response = client.post(f"/api/findings/{finding_id}/analysis")
+    read_response = client.get(f"/api/findings/{finding_id}/analysis")
+
+    assert create_response.status_code == 201
+    assert create_response.json()["finding_id"] == finding_id
+    assert read_response.status_code == 200
+    assert read_response.json()["status"] == "completed"
+
+
+def test_analysis_for_unknown_finding_is_not_found(upload_client):
+    client, _, _ = upload_client
+
+    response = client.post("/api/findings/999999/analysis")
+
+    assert response.status_code == 404
+
+
+def test_unknown_analysis_provider_returns_safe_503(upload_client, monkeypatch):
+    client, _, _ = upload_client
+    from app.llm.factory import settings
+
+    monkeypatch.setattr(settings, "ai_provider", "gemini")
+
+    scan_response = client.post(
+        "/api/scans",
+        files={"file": ("example.py", b'password = "not-a-real-secret"\n', "text/x-python")},
+    )
+    finding_id = client.get(f"/api/scans/{scan_response.json()['scan_id']}/findings").json()[0]["id"]
+
+    response = client.post(f"/api/findings/{finding_id}/analysis")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Security analysis is currently unavailable."
+
+
 def test_scanner_failure_marks_scan_failed_and_cleans_file(upload_client, monkeypatch):
     client, session_factory, upload_dir = upload_client
     monkeypatch.setattr(

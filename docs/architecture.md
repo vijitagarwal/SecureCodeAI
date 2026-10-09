@@ -47,6 +47,15 @@ Temporary file cleanup
   |
   v
 Frontend findings dashboard
+  |
+  v
+Deterministic CWE/OWASP enrichment
+  |
+  v
+Structured analysis provider
+  |
+  v
+Persisted developer-review analysis
 ```
 
 If Bandit cannot produce usable JSON, the scan is marked `failed` and the temporary file is still removed.
@@ -101,6 +110,10 @@ GET /api/scans/{scan_id}/findings
 These return Pydantic response models rather than ORM objects directly.
 
 The Docker Compose stack contains PostgreSQL, the migration-running FastAPI backend, and the Next.js frontend. The backend waits for PostgreSQL health before applying migrations and starting.
+
+### AI analysis boundary
+
+`LLMProvider` is provider-independent. The current `MockSecurityProvider` is local and deterministic. `analysis_service.py` supplies targeted finding context, validates the structured response, persists it separately from `Finding`, and never applies generated code. Generated diffs are review artifacts only.
 
 ## Security boundaries
 

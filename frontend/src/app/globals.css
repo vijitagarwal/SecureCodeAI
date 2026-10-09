@@ -44,6 +44,16 @@ select { min-height: 38px; padding: 0 10px; border: 1px solid var(--line); backg
 .finding-card h3 { margin: 15px 0 8px; font-size: 21px; font-weight: 400; }
 .finding-card p { line-height: 1.5; }
 .finding-card pre { overflow-x: auto; margin: 16px 0 0; padding: 14px; background: #17211b; color: #e9f3e9; font: 13px/1.5 Consolas, monospace; }
+.classification { display: grid; gap: 8px; margin: 16px 0; font: 13px/1.4 Arial, sans-serif; }
+.classification div { display: flex; gap: 10px; }
+.classification dt { min-width: 52px; color: var(--muted); font-weight: 700; }
+.classification dd { margin: 0; }
+.remediation-guidance { font-size: 14px; }
+.analysis-button { min-height: 40px; margin-top: 16px; padding: 0 14px; }
+.analysis-card { margin-top: 18px; padding: 16px; border-left: 3px solid #5da56c; background: rgba(217,244,223,.55); }
+.analysis-card h4 { margin: 8px 0; font-size: 19px; font-weight: 400; }
+.analysis-card p { font-size: 14px; }
+.analysis-label { color: #37734b; font: 700 10px/1.2 Arial, sans-serif !important; letter-spacing: 1px; }
 @media (max-width: 520px) { .health-grid { grid-template-columns: 1fr; } main { padding-top: 10vh; } }
 @media (max-width: 520px) { .upload-panel form, .upload-result { grid-template-columns: 1fr; display: grid; } button { min-height: 48px; } }
 @media (max-width: 520px) { .findings-header { align-items: stretch; flex-direction: column; } }

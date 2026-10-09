@@ -115,6 +115,39 @@ class Finding(Base):
     line_number: Mapped[int | None] = mapped_column(Integer)
     code_snippet: Mapped[str | None] = mapped_column(Text)
     raw_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    cwe_id: Mapped[str | None] = mapped_column(String(20))
+    cwe_name: Mapped[str | None] = mapped_column(String(255))
+    owasp_category: Mapped[str | None] = mapped_column(String(120))
+    remediation_category: Mapped[str] = mapped_column(String(80), nullable=False, default="manual-review")
+    remediation_guidance: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     scan: Mapped[Scan] = relationship(back_populates="findings")
+    analysis: Mapped["SecurityAnalysis | None"] = relationship(
+        back_populates="finding", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class SecurityAnalysis(Base):
+    __tablename__ = "security_analyses"
+    __table_args__ = (
+        CheckConstraint("status IN ('completed', 'failed')", name="ck_security_analyses_status"),
+        Index("ix_security_analyses_finding_id", "finding_id", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    finding_id: Mapped[int] = mapped_column(
+        ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
+    finding_summary: Mapped[str] = mapped_column(String(2000), nullable=False)
+    root_cause: Mapped[str] = mapped_column(Text, nullable=False)
+    security_impact: Mapped[str] = mapped_column(Text, nullable=False)
+    false_positive_assessment: Mapped[str] = mapped_column(String(2000), nullable=False)
+    remediation: Mapped[str] = mapped_column(Text, nullable=False)
+    fixed_code: Mapped[str | None] = mapped_column(Text)
+    diff: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    finding: Mapped[Finding] = relationship(back_populates="analysis")

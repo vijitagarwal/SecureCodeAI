@@ -14,9 +14,11 @@ Database credentials and runtime settings are supplied through environment varia
 
 The current MVP does not provide user authentication or authorization; it is intended for a trusted local developer environment. Do not expose the service directly to the public internet. Database errors are logged server-side and returned to health clients only as an unavailable status.
 
-## LLM status
+## LLM status and trust boundary
 
-There is no live LLM integration in the current MVP. This avoids sending source code to an external provider without an explicit trust and configuration boundary. Any future provider integration must validate structured output, apply timeouts, avoid logging source or credentials, and keep remediation behind developer review.
+The current analysis endpoint uses a deterministic local mock provider. It receives only the rule, finding text, snippet, and classification; it does not receive credentials, environment variables, or server filesystem paths. Provider output is validated with bounded schemas before persistence. Any future remote provider must preserve this boundary, apply timeouts, avoid logging source or credentials, and keep remediation behind developer review.
+
+AI analysis is separate from the static scanner result. It cannot change scanner severity or silently overwrite source. Proposed code and diffs are stored as review material only and are never executed or automatically applied.
 
 ## Known limitations
 

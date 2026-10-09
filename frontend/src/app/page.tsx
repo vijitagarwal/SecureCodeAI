@@ -25,6 +25,22 @@ type Finding = {
   file_path: string;
   line_number: number | null;
   code_snippet: string | null;
+  cwe_id: string | null;
+  cwe_name: string | null;
+  owasp_category: string | null;
+  remediation_guidance: string;
+  analysis_available: boolean;
+};
+
+type Analysis = {
+  finding_summary: string;
+  root_cause: string;
+  security_impact: string;
+  false_positive_assessment: string;
+  remediation: string;
+  fixed_code: string | null;
+  diff: string | null;
+  confidence: number;
 };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -39,6 +55,9 @@ export default function Home() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [findingsLoading, setFindingsLoading] = useState(false);
   const [severityFilter, setSeverityFilter] = useState("ALL");
+  const [analysis, setAnalysis] = useState<Record<number, Analysis>>({});
+  const [analysisLoading, setAnalysisLoading] = useState<number | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${apiUrl}/api/health`)
@@ -49,6 +68,21 @@ export default function Home() {
       .then(setHealth)
       .catch((requestError: Error) => setError(requestError.message));
   }, []);
+
+  async function requestAnalysis(findingId: number) {
+    setAnalysisLoading(findingId);
+    setAnalysisError(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/findings/${findingId}/analysis`, { method: "POST" });
+      const payload = await response.json() as Analysis & { detail?: string };
+      if (!response.ok) throw new Error(payload.detail ?? `Analysis failed (${response.status})`);
+      setAnalysis((current) => ({ ...current, [findingId]: payload }));
+    } catch (requestError) {
+      setAnalysisError(requestError instanceof Error ? requestError.message : "Analysis failed.");
+    } finally {
+      setAnalysisLoading(null);
+    }
+  }
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +95,8 @@ export default function Home() {
     setUploadError(null);
     setUploadResult(null);
     setFindings([]);
+    setAnalysis({});
+    setAnalysisError(null);
     const formData = new FormData();
     formData.append("file", selectedFile);
 
@@ -75,6 +111,7 @@ export default function Home() {
       if (!findingsResponse.ok) {
         throw new Error(findingsPayload.detail ?? `Findings could not be loaded (${findingsResponse.status})`);
       }
+
       setFindings(findingsPayload);
     } catch (requestError) {
       setUploadError(requestError instanceof Error ? requestError.message : "The upload failed.");
@@ -155,7 +192,32 @@ export default function Home() {
                   <h3>{finding.title}</h3>
                   <p>{finding.description}</p>
                   <p className="finding-meta">{finding.rule_id} · {finding.confidence} confidence</p>
+                  <dl className="classification">
+                    <div><dt>CWE</dt><dd>{finding.cwe_id ? `${finding.cwe_id} · ${finding.cwe_name}` : "Unmapped"}</dd></div>
+                    <div><dt>OWASP</dt><dd>{finding.owasp_category ?? "Unmapped"}</dd></div>
+                  </dl>
+                  <p className="remediation-guidance"><strong>Guidance:</strong> {finding.remediation_guidance}</p>
                   {finding.code_snippet && <pre><code>{finding.code_snippet}</code></pre>}
+                  <button
+                    className="analysis-button"
+                    type="button"
+                    onClick={() => requestAnalysis(finding.id)}
+                    disabled={analysisLoading === finding.id}
+                  >
+                    {analysisLoading === finding.id ? "Analyzing..." : analysis[finding.id] ? "Re-run AI analysis" : "Analyze with SecureCode AI"}
+                  </button>
+                  {analysisError && analysisLoading === null && <p className="form-message error" role="alert">{analysisError}</p>}
+                  {analysis[finding.id] && (
+                    <div className="analysis-card" aria-label="AI security analysis">
+                      <p className="analysis-label">AI ANALYSIS · {Math.round(analysis[finding.id].confidence * 100)}% confidence</p>
+                      <h4>{analysis[finding.id].finding_summary}</h4>
+                      <p><strong>Root cause:</strong> {analysis[finding.id].root_cause}</p>
+                      <p><strong>Security impact:</strong> {analysis[finding.id].security_impact}</p>
+                      <p><strong>False-positive review:</strong> {analysis[finding.id].false_positive_assessment}</p>
+                      <p><strong>Recommended remediation:</strong> {analysis[finding.id].remediation}</p>
+                      {analysis[finding.id].diff && <pre><code>{analysis[finding.id].diff}</code></pre>}
+                    </div>
+                  )}
                 </article>
               ))}
           </div>

@@ -9,6 +9,7 @@ from app.db.models import FindingSeverity, Scan, ScanStatus
 from app.db.repositories.finding_repository import create_findings
 from app.db.repositories.scan_repository import update_scan_counts, update_scan_status
 from app.scanners.base import ScannerError, SecurityScanner
+from app.security.classification import classify_rule
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,11 @@ def run_scan(db: Session, scan: Scan, target_path: str, scanner: SecurityScanner
                 "line_number": finding.line_number,
                 "code_snippet": finding.code_snippet,
                 "raw_metadata": finding.raw_metadata,
+                "cwe_id": classify_rule(finding.rule_id).cwe_id,
+                "cwe_name": classify_rule(finding.rule_id).cwe_name,
+                "owasp_category": classify_rule(finding.rule_id).owasp_category,
+                "remediation_category": classify_rule(finding.rule_id).remediation_category,
+                "remediation_guidance": classify_rule(finding.rule_id).remediation_guidance,
             }
             for finding in result.findings
         ]
