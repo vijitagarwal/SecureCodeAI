@@ -43,3 +43,17 @@ deterministic, with remote AI separately configured and tested at its boundary.
 - Safe failure reasons, complete severity counts, constraints and migration.
 - Backend regression suite: 69 passed; separate Alembic upgrade/check/downgrade/upgrade test passed.
 - Docker CLI absent. PostgreSQL and Docker integration remain unverified.
+
+## Milestone 2
+
+- Authenticated dashboard with memory-only workspace key, upload, persisted history,
+  complete server-side severity filtering/pagination, saved analysis, JSON export,
+  and confirmed scan deletion.
+- Request cancellation prevents stale result reads; failures are distinct from
+  empty/clean results. Source is rendered as text, never HTML.
+- Five React interaction tests pass, plus ESLint and Next production build.
+- Upgraded Next.js 15 to 16.4.0 to resolve published dependency advisories; Node
+  22.12+ is required. A Sharp override selects the patched 0.35.5+ release.
+- `npm audit --omit=dev --audit-level=high`: zero known vulnerabilities.
+- Tests use jsdom with an API contract double; visual browser interaction and
+  container deployment have not been verified.
