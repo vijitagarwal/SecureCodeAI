@@ -73,16 +73,18 @@ def test_scan_create_retrieve_status_and_counts(db_session: Session):
             FindingSeverity.HIGH: 2,
             FindingSeverity.MEDIUM: 3,
             FindingSeverity.LOW: 4,
+            FindingSeverity.INFO: 5,
         },
     )
     db_session.commit()
 
     assert retrieved.status == ScanStatus.COMPLETED
-    assert retrieved.total_findings == 10
+    assert retrieved.total_findings == 15
     assert retrieved.critical_count == 1
     assert retrieved.high_count == 2
     assert retrieved.medium_count == 3
     assert retrieved.low_count == 4
+    assert retrieved.info_count == 5
 
 
 def test_findings_create_retrieve_and_count_by_severity(db_session: Session):

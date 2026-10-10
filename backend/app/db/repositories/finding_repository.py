@@ -1,5 +1,5 @@
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import Finding, FindingSeverity
 
@@ -28,14 +28,12 @@ def get_findings_for_scan(
     *,
     offset: int = 0,
     limit: int = 100,
+    severity: FindingSeverity | None = None,
 ) -> list[Finding]:
-    statement = (
-        select(Finding)
-        .where(Finding.scan_id == scan_id)
-        .order_by(Finding.id)
-        .offset(offset)
-        .limit(limit)
-    )
+    statement = select(Finding).options(selectinload(Finding.analysis)).where(Finding.scan_id == scan_id)
+    if severity is not None:
+        statement = statement.where(Finding.severity == severity)
+    statement = statement.order_by(Finding.id).offset(offset).limit(limit)
     return list(db.scalars(statement))
 
 

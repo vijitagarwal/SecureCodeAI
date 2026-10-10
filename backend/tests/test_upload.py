@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import Session, sessionmaker
+from pydantic import SecretStr
 
 from app.db.database import Base, get_db
 from app.db.models import ScanStatus
@@ -35,8 +36,9 @@ def upload_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     app.dependency_overrides[get_db] = override_get_db
     monkeypatch.setattr("app.services.upload_service.settings.upload_dir", str(tmp_path))
     monkeypatch.setattr("app.services.upload_service.settings.max_upload_size_bytes", 5 * 1024 * 1024)
+    monkeypatch.setattr("app.core.config.settings.api_key", SecretStr("test-workspace-key-not-for-use-123456"))
 
-    with TestClient(app) as client:
+    with TestClient(app, headers={"Authorization": "Bearer test-workspace-key-not-for-use-123456"}) as client:
         yield client, session_factory, tmp_path
 
     app.dependency_overrides.clear()
@@ -108,6 +110,43 @@ def test_scan_and_findings_endpoints_return_persisted_results(upload_client):
     assert "raw_metadata" not in findings_response.json()[0]
 
 
+def test_scan_history_is_paginated_and_newest_first(upload_client):
+    client, _, _ = upload_client
+    first = client.post(
+        "/api/scans",
+        files={"file": ("first.py", b"value = 1\n", "text/x-python")},
+    )
+    second = client.post(
+        "/api/scans",
+        files={"file": ("second.py", b'password = "not-a-real-secret"\n', "text/x-python")},
+    )
+
+    response = client.get("/api/scans?offset=0&limit=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert payload["offset"] == 0
+    assert payload["limit"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["id"] == second.json()["scan_id"]
+    assert payload["items"][0]["scanner_names"] == ["bandit"]
+    assert first.json()["scan_id"] != second.json()["scan_id"]
+
+
+def test_scan_and_api_responses_include_security_headers(upload_client):
+    client, _, _ = upload_client
+
+    response = client.post(
+        "/api/scans",
+        files={"file": ("example.py", b"value = 1\n", "text/x-python")},
+    )
+
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
+
+
 def test_finding_analysis_can_be_generated_and_retrieved(upload_client):
     client, _, _ = upload_client
     scan_response = client.post(
@@ -168,6 +207,7 @@ def test_scanner_failure_marks_scan_failed_and_cleans_file(upload_client, monkey
     assert response.status_code == 201
     payload = response.json()
     assert payload["status"] == ScanStatus.FAILED
+    assert payload["failure_reason"] == "The scanner could not complete this file."
     with session_factory() as session:
         assert get_scan(session, payload["scan_id"]).status == ScanStatus.FAILED
     assert list(upload_dir.iterdir()) == []

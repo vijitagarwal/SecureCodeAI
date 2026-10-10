@@ -27,7 +27,9 @@ class ScannerResult:
 
 
 class ScannerError(Exception):
-    pass
+    def __init__(self, message: str, *, public_message: str = "The scanner could not complete this file."):
+        super().__init__(message)
+        self.public_message = public_message
 
 
 class SecurityScanner(ABC):

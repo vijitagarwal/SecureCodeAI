@@ -11,3 +11,9 @@ out/
 !.env.example
 *.log
 *.tsbuildinfo
+.test-tmp*/
+.npm-cache/
+.data/
+*.db
+test-results/
+playwright-report/

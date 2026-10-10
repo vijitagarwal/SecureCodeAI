@@ -15,6 +15,7 @@ class ScanUploadResponse(BaseModel):
     status: ScanStatus
     filename: str
     total_findings: int
+    failure_reason: str | None = None
 
 
 class ScanStatusUpdate(BaseModel):
@@ -37,6 +38,8 @@ class ScanResponse(BaseModel):
     high_count: int
     medium_count: int
     low_count: int
+    info_count: int
+    failure_reason: str | None
 
 
 class ScanSummary(BaseModel):
@@ -50,3 +53,10 @@ class ScanSummary(BaseModel):
 
 class ScanDetailResponse(ScanResponse):
     pass
+
+
+class ScanListResponse(BaseModel):
+    items: list[ScanResponse]
+    total: int
+    offset: int
+    limit: int

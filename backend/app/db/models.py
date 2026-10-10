@@ -36,6 +36,11 @@ class Scan(Base):
             "status IN ('queued', 'running', 'completed', 'failed')",
             name="ck_scans_status",
         ),
+        CheckConstraint(
+            "total_findings >= 0 AND critical_count >= 0 AND high_count >= 0 "
+            "AND medium_count >= 0 AND low_count >= 0 AND info_count >= 0",
+            name="ck_scans_nonnegative_counts",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -62,6 +67,8 @@ class Scan(Base):
     high_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     medium_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     low_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    info_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    failure_reason: Mapped[str | None] = mapped_column(String(500))
 
     findings: Mapped[list["Finding"]] = relationship(
         back_populates="scan",
@@ -80,6 +87,10 @@ class Finding(Base):
         CheckConstraint(
             "confidence IN ('HIGH', 'MEDIUM', 'LOW')",
             name="ck_findings_confidence",
+        ),
+        CheckConstraint(
+            "line_number IS NULL OR line_number > 0",
+            name="ck_findings_positive_line_number",
         ),
         Index("ix_findings_scan_id", "scan_id"),
         Index("ix_findings_severity", "severity"),
@@ -132,6 +143,10 @@ class SecurityAnalysis(Base):
     __tablename__ = "security_analyses"
     __table_args__ = (
         CheckConstraint("status IN ('completed', 'failed')", name="ck_security_analyses_status"),
+        CheckConstraint(
+            "confidence >= 0 AND confidence <= 1",
+            name="ck_security_analyses_confidence",
+        ),
         Index("ix_security_analyses_finding_id", "finding_id", unique=True),
     )
 

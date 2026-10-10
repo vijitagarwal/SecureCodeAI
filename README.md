@@ -10,7 +10,10 @@ SecureCode AI is a local security-analysis platform for reviewing Python securit
 
 ## Setup
 
-Copy `.env.example` to `.env` and set a local PostgreSQL password. The complete stack can then be started with:
+Copy `.env.example` to `.env`, set a local PostgreSQL password and a random `API_KEY`
+(at least 32 characters). Generate a key with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+All scan and analysis API requests require `Authorization: Bearer <API_KEY>`.
+The complete stack can then be started with:
 
 ```bash
 docker compose up --build

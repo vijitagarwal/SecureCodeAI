@@ -20,10 +20,12 @@ class ScanExecutionError(Exception):
 
 
 def run_scan(db: Session, scan: Scan, target_path: str, scanner: SecurityScanner) -> None:
-    update_scan_status(db, scan, ScanStatus.RUNNING)
-    db.commit()
     try:
+        update_scan_status(db, scan, ScanStatus.RUNNING)
+        db.commit()
         result = scanner.scan(target_path)
+        if result.errors:
+            raise ScannerError("Scanner returned errors; coverage is incomplete.")
         values = [
             {
                 "scan_id": scan.id,
@@ -33,7 +35,7 @@ def run_scan(db: Session, scan: Scan, target_path: str, scanner: SecurityScanner
                 "description": finding.description,
                 "severity": finding.severity,
                 "confidence": finding.confidence,
-                "file_path": scan.name if finding.file_path == Path(target_path).name else finding.file_path,
+                "file_path": scan.name,
                 "line_number": finding.line_number,
                 "code_snippet": finding.code_snippet,
                 "raw_metadata": finding.raw_metadata,
@@ -48,25 +50,35 @@ def run_scan(db: Session, scan: Scan, target_path: str, scanner: SecurityScanner
         create_findings(db, values)
         counts = Counter(finding.severity for finding in result.findings)
         update_scan_counts(db, scan, dict(counts))
+        scan.failure_reason = None
         update_scan_status(db, scan, ScanStatus.COMPLETED)
         db.commit()
-    except (ScannerError, SQLAlchemyError, ScanExecutionError) as error:
+    except ScannerError as error:
         db.rollback()
-        logger.error("Scan failed: %s", error)
+        logger.warning("Scanner failed")
+        _mark_failed(db, scan, failure_reason=error.public_message)
+    except (SQLAlchemyError, ScanExecutionError):
+        db.rollback()
+        logger.error("Scan failed due to an internal error")
+        _mark_failed(db, scan)
+    except Exception:
+        db.rollback()
+        logger.error("Scan failed due to an unexpected error")
         _mark_failed(db, scan)
     finally:
         try:
             Path(target_path).unlink(missing_ok=True)
         except OSError:
-            logger.exception("Failed to remove temporary scan file")
+            logger.error("Failed to remove temporary scan file")
 
 
-def _mark_failed(db: Session, scan: Scan) -> None:
+def _mark_failed(db: Session, scan: Scan, failure_reason: str = "Scan could not be completed.") -> None:
     try:
         persisted_scan = db.get(Scan, scan.id)
         if persisted_scan is not None:
+            persisted_scan.failure_reason = failure_reason[:500]
             update_scan_status(db, persisted_scan, ScanStatus.FAILED)
             db.commit()
     except SQLAlchemyError:
         db.rollback()
-        logger.exception("Failed to persist failed scan status")
+        logger.error("Failed to persist failed scan status")

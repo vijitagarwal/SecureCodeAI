@@ -18,7 +18,7 @@ def health() -> dict[str, object]:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
     except Exception:
-        logger.exception("Health check database probe failed")
+        logger.warning("Health check database probe failed")
         database = {"status": "unavailable"}
 
     return {
