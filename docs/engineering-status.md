@@ -85,6 +85,8 @@ deterministic, with remote AI separately configured and tested at its boundary.
   IDs, and generic unexpected-error responses are covered.
 - Optional Gemini failures can persist explicitly labeled deterministic fallback
   guidance. The UI distinguishes that fallback from remote AI.
-- Focused assurance suites pass; full rerun and final checks remain before the
-  release checkpoint. Docker and live PostgreSQL remain environment-blocked locally
-  but are now CI jobs.
+- Full backend rerun: 120 passed, 2 skipped (PostgreSQL integration and POSIX-only
+  descendant fixture on Windows). Frontend lint, typecheck, 6 interaction tests,
+  production build, npm audit, YAML parsing, and diff checks pass.
+- Docker, live PostgreSQL, live Gemini, and browser/container interaction remain
+  environment-blocked locally but are now represented by CI or opt-in checks.

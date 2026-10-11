@@ -21,7 +21,7 @@ data endpoint.
 
 ## Authentication
 
-All endpoints except `/api/health` and CORS `OPTIONS` requests require:
+All endpoints except `/api/live`, `/api/health`, and CORS `OPTIONS` requests require:
 
 ```text
 Authorization: Bearer <API_KEY>
@@ -47,6 +47,9 @@ Findings also include conservative `cwe_id`, `cwe_name`, `owasp_category`,
 `remediation_category`, `remediation_guidance`, and `analysis_available` fields.
 Unknown scanner rules remain unmapped and are marked for manual review. Responses
 are capped at 100 findings per request and use stable ID ordering.
+
+Every response includes an opaque `X-Request-ID` for safe server-side correlation;
+it is not an authentication credential.
 
 `POST /api/findings/{finding_id}/analysis` runs the configured local or explicitly
 configured Gemini structured analysis provider and stores the result. Repeated

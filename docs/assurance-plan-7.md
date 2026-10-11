@@ -20,20 +20,34 @@ Gemini endpoint → bounded schema → saved provenance → text-only review UI.
 All key holders share all data. Integer IDs are not authorization boundaries. Public
 health exposes generic availability; schemas/docs expose no workspace data.
 
-## Actionable review queue
+## Findings resolved in this mission
 
-1. Upload cleanup ownership after exclusive-create failure; request cancellation and
-   real worker capacity; strict framing and authentication regression coverage.
-2. Polling scanner output permits disk growth between polls; process-tree cleanup
-   and actual timeout/output tests need evidence.
-3. Gemini timeout is not a hard deadline; automatic decompression precedes the
-   application size check. Provider outages lack an explicit local fallback.
-4. Exports load up to 5,000 findings and analyses at once; finding-count limits alone
-   allow very large JSON allocations. Check consistent export/delete behavior.
-5. Lock held over provider I/O; interrupted scans can stay running forever. Provide
-   bounded database waits and safe operator recovery without guessing active work.
-6. API.md and operational docs are stale. CI lacks container startup and Python
-   dependency audits. Browser/live service verification remains an explicit gap.
+- Upload ownership is tracked after exclusive creation, worker sessions are
+  thread-owned, request framing is strict, and authentication/resource boundary
+  regressions are covered.
+- Scanner output is drained through a bounded pipe, direct processes are reaped,
+  POSIX process groups are terminated on timeout, targets can be restricted to the
+  approved upload root, and actual timeout/output/encoding fixtures pass.
+- Gemini responses have configured size and elapsed-time checks plus HTTP client
+  timeouts. Provider errors can produce explicitly labeled `mock-fallback` guidance;
+  mocked HTTP failures remain distinct from a live-provider verification.
+- Reports have an explicit byte ceiling in addition to finding/pagination bounds;
+  export, Unicode, analysis association, and cascade deletion are covered.
+- API and operator documentation now describe liveness/readiness, request IDs,
+  limits, data deletion, Compose posture, and CI container/dependency checks.
+
+## Residual review queue
+
+1. A hard process kill or host crash can leave a `running` scan record until an
+   operator reconciles it. Automatic reconciliation needs an execution lease or
+   durable queue and should not mark another worker's live scan failed.
+2. Limits and semaphores are per process/worker. Shared deployments still need an
+   external rate limiter, worker sizing, retention policy, and database pool policy.
+3. Docker, live PostgreSQL, Gemini, and browser/container interaction remain
+   environment-dependent here. CI now provisions PostgreSQL and smoke-tests Compose;
+   the current workspace cannot execute those jobs locally.
+4. The scanner subprocess is not a kernel sandbox. Host/container isolation and
+   least-privilege deployment remain necessary for untrusted source analysis.
 
 Tests use app-owned subprocess fixtures only. Uploaded source is never executed.
 The subprocess environment is isolation hygiene, not an OS sandbox. Prompt text is

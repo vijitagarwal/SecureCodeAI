@@ -23,3 +23,8 @@ def test_unknown_provider_is_rejected():
 def test_wildcard_cors_is_rejected():
     with pytest.raises(ValidationError, match="explicit origins"):
         Settings(_env_file=None, cors_origins="*")
+
+
+def test_workspace_key_length_is_bounded():
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, api_key=SecretStr("x" * 257))
