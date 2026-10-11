@@ -20,7 +20,7 @@ deterministic, with remote AI separately configured and tested at its boundary.
 - Clean working tree at `5becbe8`.
 - Python 3.14.2, Node 24.12.0, npm 11.6.2 available.
 - Backend: `python -m pytest tests -q`: 44 passed.
-- Frontend lint/typecheck/build: missing installed dependencies.
+- Frontend lint/typecheck/build: verified locally with the checked-in lockfile.
 - Default PostgreSQL migration command: timed out; live PostgreSQL unverified.
 
 ## Milestones
@@ -57,3 +57,16 @@ deterministic, with remote AI separately configured and tested at its boundary.
 - `npm audit --omit=dev --audit-level=high`: zero known vulnerabilities.
 - Tests use jsdom with an API contract double; visual browser interaction and
   container deployment have not been verified.
+
+## Milestone 3
+
+- Added an optional Gemini provider behind the provider interface. Its request and
+  response boundary is tested without sending live credentials.
+- Remote provider settings are validated at startup; mock remains the safe default.
+- Backend and frontend production containers run as non-root users, use locked
+  dependency manifests, apply security headers, and expose only loopback ports in
+  the local Compose stack.
+- CI runs backend tests, the opt-in PostgreSQL integration, frontend tests/build,
+  and a production dependency audit.
+- Live Gemini, Docker, PostgreSQL, and browser-container behavior still require
+  environment-specific verification when those services are available.

@@ -40,7 +40,7 @@ export function FindingCard({ finding, api, workspace }: { finding: Finding; api
       <p><strong>False-positive review:</strong> {analysis.false_positive_assessment}</p>
       <p><strong>Recommended remediation:</strong> {analysis.remediation}</p>
       {analysis.fixed_code && <><h4>Proposed code</h4><pre><code>{analysis.fixed_code}</code></pre></>}
-      {analysis.diff && <><h4>Proposed diff</h4><pre><code>{analysis.diff}</code></pre></>}
+      {analysis.diff && <><h4>Snippet-level review diff</h4><p className="muted">Line numbers are relative to this excerpt, not the complete file.</p><pre><code>{analysis.diff}</code></pre></>}
       <p className="muted">Review and test proposed changes in your project before applying them.</p>
     </section>}
   </article>;

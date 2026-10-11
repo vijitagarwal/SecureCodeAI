@@ -5,14 +5,15 @@ SecureCode AI is a local security-analysis platform for reviewing Python securit
 ## Prerequisites
 
 - Python 3.11+
-- Node.js 20+
+- Node.js 22.12+
 - Docker Desktop
 
 ## Setup
 
 Copy `.env.example` to `.env`, set a local PostgreSQL password and a random `API_KEY`
 (at least 32 characters). Generate a key with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
-All scan and analysis API requests require `Authorization: Bearer <API_KEY>`.
+All scan, history, report, deletion, and analysis API requests require
+`Authorization: Bearer <API_KEY>`. The frontend keeps this key in memory only.
 The complete stack can then be started with:
 
 ```bash
@@ -59,6 +60,7 @@ Example request:
 
 ```bash
 curl -X POST http://localhost:8000/api/scans \
+	-H "Authorization: Bearer $API_KEY" \
 	-F "file=@example.py"
 ```
 
@@ -68,13 +70,19 @@ Successful uploads return:
 {
 	"scan_id": 123,
 	"status": "completed",
-	"filename": "example.py"
+	"filename": "example.py",
+	"total_findings": 1,
+	"failure_reason": null
 }
 ```
 
 The maximum upload size is 5 MB by default (`MAX_UPLOAD_SIZE_BYTES=5242880`). The limit is configurable through backend environment variables. Only the `.py` extension is accepted, case-insensitively; the MIME type is not trusted as the validation mechanism.
 
-AI analysis defaults to the deterministic local provider (`AI_PROVIDER=mock`). No API key is required for local development.
+AI analysis defaults to the deterministic local provider (`AI_PROVIDER=mock`). It is
+clearly labeled as rule-based guidance in the UI. Gemini can be enabled with
+`AI_PROVIDER=gemini`, `GEMINI_API_KEY`, and an optional `GEMINI_MODEL`; the backend
+fails fast if a remote provider is selected without its credential. Remote analysis
+receives only the selected finding context and remains a review artifact.
 
 Files are written to the configurable `UPLOAD_DIR`, which defaults to the operating system temporary directory under `securecode-ai`. Storage names are generated UUIDs with a `.py` suffix, never the user-provided filename. The temporary file is retained for the upcoming scanner pipeline and is not permanent user storage.
 
@@ -111,4 +119,23 @@ npm run typecheck
 npm run build
 ```
 
-The current dashboard provides upload, scan status, finding count, severity filtering, finding locations, scanner rule IDs, confidence, CWE/OWASP classification, remediation guidance, and local mock AI analysis. The mock provider is deterministic and does not require credentials. Live provider integration, authentication, and asynchronous job queues remain outside the current local MVP.
+The current dashboard provides workspace unlock, upload, persisted scan history,
+scan deletion, severity filtering, paginated findings, finding locations, scanner
+rule IDs, confidence, CWE/OWASP classification, remediation guidance, saved
+analysis, and JSON report export. The mock provider is deterministic and does not
+require credentials. Scans are bounded synchronous jobs; the API moves blocking
+scanner/provider work off the async event loop and rejects excess concurrent work.
+
+## Provider configuration
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `AI_PROVIDER` | `mock` | `mock` for local deterministic guidance or `gemini` for remote analysis |
+| `GEMINI_API_KEY` | empty | Required when `AI_PROVIDER=gemini`; never sent to the frontend |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model identifier |
+| `AI_TIMEOUT_SECONDS` | `20` | Per-provider request timeout, from 1 to 60 seconds |
+| `MAX_CONCURRENT_SCANS` | `2` | Per-worker scanner capacity |
+| `MAX_CONCURRENT_ANALYSES` | `2` | Per-worker analysis capacity |
+
+The Gemini boundary is covered with a transport double in the backend tests. No
+live provider credential is stored in the repository or required by CI.

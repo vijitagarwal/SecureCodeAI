@@ -37,6 +37,7 @@ def upload_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("app.services.upload_service.settings.upload_dir", str(tmp_path))
     monkeypatch.setattr("app.services.upload_service.settings.max_upload_size_bytes", 5 * 1024 * 1024)
     monkeypatch.setattr("app.core.config.settings.api_key", SecretStr("test-workspace-key-not-for-use-123456"))
+    monkeypatch.setattr("app.core.config.settings.ai_provider", "mock")
 
     with TestClient(app, headers={"Authorization": "Bearer test-workspace-key-not-for-use-123456"}) as client:
         yield client, session_factory, tmp_path
@@ -178,7 +179,7 @@ def test_unknown_analysis_provider_returns_safe_503(upload_client, monkeypatch):
     client, _, _ = upload_client
     from app.llm.factory import settings
 
-    monkeypatch.setattr(settings, "ai_provider", "gemini")
+    monkeypatch.setattr(settings, "ai_provider", "unknown")
 
     scan_response = client.post(
         "/api/scans",

@@ -28,7 +28,7 @@ _MAPPINGS: dict[str, Classification] = {
         "A02: Cryptographic Failures", "cryptography", "Use a modern, approved cryptographic algorithm and key size.",
     ),
     "B506": Classification(
-        "CWE-20", "Improper Input Validation", "A08: Software and Data Integrity Failures",
+        "CWE-502", "Deserialization of Untrusted Data", "A08: Software and Data Integrity Failures",
         "safe-deserialization", "Use `yaml.safe_load` with strict schema validation for untrusted YAML.",
     ),
     "B602": Classification(

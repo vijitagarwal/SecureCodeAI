@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added bounded optional Gemini analysis with startup configuration validation and
+  persisted provider/model provenance.
+- Added explicit analysis capacity controls and CI coverage for backend, frontend,
+  migrations, PostgreSQL, and dependency audits.
 - Added conservative CWE/OWASP classification and remediation guidance for known Bandit rules.
 - Added a provider-independent structured security-analysis service with a deterministic local mock provider.
 - Added persisted analysis records and finding analysis API endpoints.

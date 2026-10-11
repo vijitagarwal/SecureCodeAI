@@ -106,7 +106,13 @@ def test_uploaded_source_is_not_executed_and_cannot_suppress_findings(tmp_path):
 def test_vulnerable_corpus(tmp_path, source, rule):
     path = tmp_path / "vulnerable.py"
     path.write_text(source, encoding="utf-8")
-    assert rule in {finding.rule_id for finding in BanditScanner().scan(str(path)).findings}
+    findings = BanditScanner().scan(str(path)).findings
+    assert rule in {finding.rule_id for finding in findings}
+    if rule == "B506":
+        # Bandit 1.9.4 reports its upstream B506 metadata as CWE-20. The
+        # application-level mapping intentionally uses the more specific
+        # CWE-502 classification and is covered by test_classification.py.
+        assert next(f.raw_metadata["issue_cwe"]["id"] for f in findings if f.rule_id == rule) == 20
 
 
 def test_secure_counterparts(tmp_path):

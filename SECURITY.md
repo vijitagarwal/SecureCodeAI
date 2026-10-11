@@ -12,7 +12,12 @@ Database credentials and runtime settings are supplied through environment varia
 
 ## API and database
 
-The current MVP does not provide user authentication or authorization; it is intended for a trusted local developer environment. Do not expose the service directly to the public internet. Database errors are logged server-side and returned to health clients only as an unavailable status.
+The workspace uses a server-configured bearer API key. Protected API routes fail
+closed when `API_KEY` is absent and compare credentials in constant time. The key
+is not persisted by the frontend, and database errors are returned only as generic
+messages. This is single-operator workspace access rather than a multi-user
+identity system; do not expose it directly to the public internet without adding
+tenant-aware authentication, authorization, and an external rate limiter.
 
 ## LLM status and trust boundary
 
@@ -22,7 +27,7 @@ AI analysis is separate from the static scanner result. It cannot change scanner
 
 ## Known limitations
 
-- Authentication, authorization, rate limiting, and multi-tenant isolation are not implemented.
-- Scans run synchronously in the API process.
+- Multi-user authentication, per-user authorization, and distributed rate limiting are not implemented.
+- Scans run synchronously from the caller's perspective, with blocking work isolated from the async event loop.
 - Bandit is the only scanner.
-- Docker image dependency installation uses the manifests available in this repository; lockfiles should be added before production deployment.
+- Capacity controls are per application worker; deploy behind an appropriate reverse proxy for shared or public environments.

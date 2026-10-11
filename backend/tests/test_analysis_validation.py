@@ -14,6 +14,10 @@ from app.security.diff_validation import contains_unsafe_diff_path
         "diff --git a/\\\\server\\share\\outside.py b/\\\\server\\share\\outside.py",
         "--- /etc/passwd\n+++ /etc/passwd",
         "--- ..\\outside.py\n+++ ..\\outside.py",
+        "--- a/C:/outside.py\n+++ b/C:/outside.py",
+        'diff --git "a/../outside.py" "b/../outside.py"',
+        "diff --git a/file.py",
+        "not a diff",
         "diff --git a/ok.py b/ok.py\n--- a/ok.py\x00\n+++ b/ok.py",
     ],
 )

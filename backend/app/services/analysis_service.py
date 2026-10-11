@@ -1,56 +1,68 @@
+import difflib
 import logging
+import re
 
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 from pydantic import ValidationError
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.db.models import Finding, SecurityAnalysis
 from app.llm.base import LLMProvider, ProviderError
-from app.schemas.analysis import AnalysisResponse
+from app.schemas.analysis import AnalysisContent, AnalysisResponse
 from app.security.classification import classify_rule
 
 logger = logging.getLogger(__name__)
 
 
 def analyze_finding(db: Session, finding: Finding, provider: LLMProvider) -> AnalysisResponse:
+    finding_id = finding.id
     try:
+        # Serialize competing requests for one finding on PostgreSQL. The unique
+        # constraint below is also the final arbiter on SQLite.
+        db.execute(select(Finding.id).where(Finding.id == finding_id).with_for_update()).scalar_one()
+        existing = db.scalar(select(SecurityAnalysis).where(SecurityAnalysis.finding_id == finding_id))
+        if existing is not None:
+            return AnalysisResponse.model_validate(existing)
         try:
-            provider_result = provider.analyze(
-                rule_id=finding.rule_id,
-                title=finding.title,
-                description=finding.description,
-                snippet=finding.code_snippet,
-                classification=classify_rule(finding.rule_id),
+            output = provider.analyze(
+                rule_id=finding.rule_id, title=finding.title, description=finding.description,
+                snippet=finding.code_snippet, classification=classify_rule(finding.rule_id),
+                severity=finding.severity.value, confidence=finding.confidence.value,
             )
         except ProviderError:
             raise
         except Exception as error:
             raise ProviderError("Security analysis provider failed.") from error
-        result = AnalysisResponse.model_validate(provider_result).model_copy(update={"finding_id": finding.id})
+        # Revalidate a dict, including model instances constructed without validation.
+        content = AnalysisContent.model_validate(output.model_dump() if isinstance(output, AnalysisContent) else output)
+        if content.fixed_code and finding.code_snippet:
+            original = re.sub(r"(?m)^\d+ ", "", finding.code_snippet)
+            diff = "".join(difflib.unified_diff(
+                (original.rstrip("\n") + "\n").splitlines(keepends=True),
+                (content.fixed_code.rstrip("\n") + "\n").splitlines(keepends=True),
+                fromfile="a/snippet.py", tofile="b/snippet.py",
+            ))
+            content = AnalysisContent.model_validate({**content.model_dump(), "diff": diff or None})
         record = SecurityAnalysis(
-            finding_id=finding.id,
-            status=result.status,
-            finding_summary=result.finding_summary,
-            root_cause=result.root_cause,
-            security_impact=result.security_impact,
-            false_positive_assessment=result.false_positive_assessment,
-            remediation=result.remediation,
-            fixed_code=result.fixed_code,
-            diff=result.diff,
-            confidence=result.confidence,
+            finding_id=finding_id, status="completed", provider=provider.name, model=provider.model,
+            **content.model_dump(),
         )
-        if finding.analysis is not None:
-            db.delete(finding.analysis)
-            db.flush()
         db.add(record)
         db.commit()
         db.refresh(record)
         return AnalysisResponse.model_validate(record)
+    except IntegrityError as error:
+        db.rollback()
+        existing = db.scalar(select(SecurityAnalysis).where(SecurityAnalysis.finding_id == finding_id))
+        if existing is not None:
+            return AnalysisResponse.model_validate(existing)
+        raise ProviderError("Security analysis could not be stored.") from error
     except (ProviderError, ValidationError, ValueError) as error:
         db.rollback()
-        logger.warning("Security analysis provider returned invalid output: %s", type(error).__name__)
+        logger.warning("Security analysis failed validation or provider request")
         raise ProviderError("Security analysis returned an invalid response.") from error
-    except SQLAlchemyError:
+    except SQLAlchemyError as error:
         db.rollback()
-        logger.exception("Failed to persist security analysis")
-        raise ProviderError("Security analysis could not be stored.")
+        logger.error("Security analysis persistence failed")
+        raise ProviderError("Security analysis could not be stored.") from error

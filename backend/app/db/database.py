@@ -1,6 +1,6 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
@@ -17,6 +17,11 @@ engine = create_engine(
     hide_parameters=True,
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+if engine.dialect.name == "sqlite":
+    @event.listens_for(engine, "connect")
+    def enable_foreign_keys(connection, record):
+        connection.execute("PRAGMA foreign_keys=ON")
 
 
 def get_db() -> Generator[Session, None, None]:

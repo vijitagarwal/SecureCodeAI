@@ -122,6 +122,8 @@ def create_finding_analysis(finding_id: int, db: Session = Depends(get_db)) -> A
     finding = get_finding(db, finding_id)
     if finding is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found.")
+    if finding.analysis is not None:
+        return AnalysisResponse.model_validate(finding.analysis)
     try:
         provider = get_security_analysis_provider()
         return analyze_finding(db, finding, provider)

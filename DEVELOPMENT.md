@@ -2,7 +2,9 @@
 
 ## Local setup
 
-Use Python 3.11+ and Node.js 20+. Copy `.env.example` to `.env`, set `POSTGRES_PASSWORD`, and run `docker compose up --build` for the complete stack.
+Use Python 3.11+ and Node.js 22.12+. Copy `.env.example` to `.env`, set
+`POSTGRES_PASSWORD` and a random `API_KEY` of at least 32 characters, and run
+`docker compose up --build` for the complete stack.
 
 For backend-only work, install `backend/requirements.txt`, apply migrations with `python -m alembic upgrade head`, and start `uvicorn app.main:app --reload` from `backend/`.
 
@@ -23,6 +25,12 @@ Finding responses are paginated at the API boundary so a scan with many findings
 
 The default `AI_PROVIDER=mock` is deterministic and local, so analysis tests do not need an API key. Provider-specific integrations should be added behind `LLMProvider` and covered with fakes for malformed output, timeouts, and provider failures.
 
+The optional Gemini provider is configured with `AI_PROVIDER=gemini` and
+`GEMINI_API_KEY`. Configuration is validated during application startup. Provider
+requests are bounded by `AI_TIMEOUT_SECONDS`, a response-size limit, and the
+`MAX_CONCURRENT_ANALYSES` capacity guard. The provider receives finding context,
+not credentials or server paths.
+
 ## Migrations
 
 Create and review Alembic migrations before changing persisted models. Do not recreate the production database to apply schema changes.
@@ -30,3 +38,16 @@ Create and review Alembic migrations before changing persisted models. Do not re
 ## Workflow
 
 Keep uploads and scanner output untrusted, preserve response schemas, add a regression test for security fixes, and run the smallest relevant checks before committing.
+
+The CI-equivalent local checks are:
+
+```text
+cd backend
+python -m pytest tests -q
+cd ../frontend
+npm run lint
+npm test
+npm run typecheck
+npm run build
+npm audit --omit=dev --audit-level=high
+```

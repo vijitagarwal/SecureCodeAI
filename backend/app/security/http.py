@@ -19,6 +19,7 @@ class RequestBoundaryMiddleware:
     def __init__(self, app):
         self.app = app
         self.scan_slots = threading.BoundedSemaphore(settings.max_concurrent_scans)
+        self.analysis_slots = threading.BoundedSemaphore(settings.max_concurrent_analyses)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or not scope["path"].startswith("/api/"):
@@ -42,6 +43,9 @@ class RequestBoundaryMiddleware:
             return await reject(error.status_code, error.detail, error.headers)
 
         is_scan = scope["path"].rstrip("/") == "/api/scans" and scope["method"] == "POST"
+        is_analysis = scope["path"].rstrip("/").endswith("/analysis") and scope["method"] == "POST"
+        if is_analysis and not self.analysis_slots.acquire(blocking=False):
+            return await reject(429, "Analysis capacity is busy. Try again shortly.", {"Retry-After": "5"})
         if is_scan and not self.scan_slots.acquire(blocking=False):
             return await reject(429, "Scanner capacity is busy. Try again shortly.", {"Retry-After": "5"})
         try:
@@ -88,3 +92,5 @@ class RequestBoundaryMiddleware:
         finally:
             if is_scan:
                 self.scan_slots.release()
+            if is_analysis:
+                self.analysis_slots.release()

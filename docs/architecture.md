@@ -64,7 +64,7 @@ If Bandit cannot produce usable JSON, the scan is marked `failed` and the tempor
 
 ### Upload route and service
 
-`POST /api/scans` accepts a multipart field named `file`. The route delegates to `upload_service.py`, which validates the filename and extension, streams at most the configured upload size, writes a UUID-generated `.py` path in the application temporary directory, creates the queued Scan, runs the scanner synchronously, and removes the temporary file in all outcomes.
+`POST /api/scans` accepts a multipart field named `file`. The route delegates to `upload_service.py`, which validates the filename and extension, streams at most the configured upload size, writes a UUID-generated `.py` path in the application temporary directory, creates the queued Scan, runs the scanner synchronously from the caller's perspective in a worker thread, and removes the temporary file in all outcomes.
 
 The original filename is stored as `Scan.name` metadata. It is never used as a filesystem path. The service does not import, execute, evaluate, or dynamically load the uploaded source.
 
@@ -113,7 +113,13 @@ The Docker Compose stack contains PostgreSQL, the migration-running FastAPI back
 
 ### AI analysis boundary
 
-`LLMProvider` is provider-independent. The current `MockSecurityProvider` is local and deterministic. `analysis_service.py` supplies targeted finding context, validates the structured response, persists it separately from `Finding`, and never applies generated code. Generated diffs are review artifacts only.
+`LLMProvider` is provider-independent. The default `MockSecurityProvider` is local
+and deterministic. The optional `GeminiSecurityProvider` uses a fixed HTTPS origin,
+no redirects or retries, bounded time and response size, and structured JSON
+validation. `analysis_service.py` supplies targeted finding context, validates the
+structured response, persists it separately from `Finding`, and never applies
+generated code. Generated diffs are review artifacts only. Selecting Gemini without
+`GEMINI_API_KEY` prevents startup rather than leaving a misleading runtime failure.
 
 ## Security boundaries
 
@@ -124,6 +130,8 @@ The Docker Compose stack contains PostgreSQL, the migration-running FastAPI back
 - Bandit stderr and internal exception details are logged server-side only and are not returned to clients.
 - Temporary files are removed after successful scans, findings-reported scans, malformed output, timeout, process failure, database failure, and unexpected errors.
 - Backend credentials remain environment-only and are never exposed to Next.js.
+- Workspace API routes require the configured bearer key before multipart parsing;
+  scan and analysis concurrency are bounded per worker.
 
 ## Testing architecture
 
@@ -131,4 +139,8 @@ The production database remains PostgreSQL. When Docker/PostgreSQL is unavailabl
 
 ## Scope boundary
 
-The current frontend intentionally provides only upload, status, and finding-count verification. The full findings dashboard, filtering, cards, and detail view belong to Milestone 5 and later. Additional scanners, AI, RAG, Git integration, authentication, queues, and CI/CD are not part of the current implementation.
+The current product is a single-operator Python workspace. It includes authenticated
+upload and history, Bandit findings, server-side finding pagination/filtering,
+persisted deterministic or optional Gemini analysis, JSON export, and destructive
+scan deletion. Additional scanners, multi-user identity, queues, repository/Git
+integration, RAG, and CI/CD findings are deliberate future extensions.

@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path, PureWindowsPath
 from uuid import uuid4
 
@@ -40,10 +41,10 @@ def _store_and_scan(db: Session, upload: UploadFile | None) -> ScanUploadRespons
     try:
         filename = _validate_filename(upload.filename if upload else None)
         upload_directory = Path(settings.upload_dir)
-        upload_directory.mkdir(parents=True, exist_ok=True)
+        upload_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         upload_path = upload_directory / f"{uuid4().hex}.py"
         bytes_written = 0
-        with upload_path.open("xb") as target:
+        with os.fdopen(os.open(upload_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as target:
             while chunk := upload.file.read(CHUNK_SIZE):
                 bytes_written += len(chunk)
                 if bytes_written > settings.max_upload_size_bytes:

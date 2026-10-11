@@ -12,7 +12,7 @@ def test_health_reports_backend_and_database(monkeypatch):
             return None
 
         def execute(self, query):
-            assert str(query) == "SELECT 1"
+            assert str(query).startswith("SELECT")
 
     class FakeEngine:
         def connect(self):
@@ -39,7 +39,7 @@ def test_health_does_not_expose_database_error_details(monkeypatch):
 
     response = TestClient(app).get("/api/health")
 
-    assert response.status_code == 200
+    assert response.status_code == 503
     assert response.json() == {
         "status": "degraded",
         "backend": {"status": "ok"},

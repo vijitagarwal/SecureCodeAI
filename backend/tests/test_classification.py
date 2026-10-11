@@ -7,7 +7,7 @@ def test_known_bandit_rules_have_conservative_security_mappings():
         "B307": ("CWE-94", "A03: Injection", "safe-evaluation"),
         "B311": ("CWE-330", "A02: Cryptographic Failures", "cryptography"),
         "B303": ("CWE-327", "A02: Cryptographic Failures", "cryptography"),
-        "B506": ("CWE-20", "A08: Software and Data Integrity Failures", "safe-deserialization"),
+        "B506": ("CWE-502", "A08: Software and Data Integrity Failures", "safe-deserialization"),
         "B602": ("CWE-78", "A03: Injection", "command-injection"),
     }
 

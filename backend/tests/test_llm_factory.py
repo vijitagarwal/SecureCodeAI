@@ -13,4 +13,4 @@ def test_mock_provider_selection_returns_existing_mock_provider():
 
 def test_unknown_provider_selection_is_rejected_safely():
     with pytest.raises(ProviderError, match="Unsupported security analysis provider"):
-        get_security_analysis_provider("gemini")
+        get_security_analysis_provider("unknown")

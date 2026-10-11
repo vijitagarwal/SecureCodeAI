@@ -154,6 +154,8 @@ class SecurityAnalysis(Base):
     finding_id: Mapped[int] = mapped_column(
         ForeignKey("findings.id", ondelete="CASCADE"), nullable=False, unique=True
     )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, default="mock", server_default="mock")
+    model: Mapped[str | None] = mapped_column(String(120))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
     finding_summary: Mapped[str] = mapped_column(String(2000), nullable=False)
     root_cause: Mapped[str] = mapped_column(Text, nullable=False)
