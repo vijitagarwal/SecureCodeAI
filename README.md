@@ -135,6 +135,7 @@ scanner/provider work off the async event loop and rejects excess concurrent wor
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model identifier |
 | `AI_TIMEOUT_SECONDS` | `20` | Per-provider request timeout, from 1 to 60 seconds |
 | `MAX_AI_RESPONSE_BYTES` | `131072` | Maximum decompressed provider response size |
+| `MAX_REPORT_BYTES` | `33554432` | Maximum JSON report size before paginated retrieval is required |
 | `MAX_CONCURRENT_SCANS` | `2` | Per-worker scanner capacity |
 | `MAX_CONCURRENT_ANALYSES` | `2` | Per-worker analysis capacity |
 
@@ -143,3 +144,8 @@ configured Gemini request fails, the API can save deterministic local guidance w
 provider provenance `mock-fallback`; the UI identifies that remote AI was
 unavailable. No live provider credential is stored in the repository or required by
 CI.
+
+Compose also runs the application containers as non-root users with dropped
+capabilities and read-only root filesystems. The upload scratch area is a tmpfs;
+PostgreSQL data remains in the named `postgres_data` volume. Container startup is
+verified in CI; it is not claimed as locally verified when Docker is unavailable.

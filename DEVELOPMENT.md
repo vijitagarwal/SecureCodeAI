@@ -31,6 +31,9 @@ requests are bounded by `AI_TIMEOUT_SECONDS`, a response-size limit, and the
 `MAX_CONCURRENT_ANALYSES` capacity guard. The provider receives finding context,
 not credentials or server paths.
 
+Backend dependency assurance can be run with `pip-audit -r requirements.txt`
+after installing the pinned development requirements.
+
 ## Migrations
 
 Create and review Alembic migrations before changing persisted models. Do not recreate the production database to apply schema changes.
@@ -51,3 +54,7 @@ npm run typecheck
 npm run build
 npm audit --omit=dev --audit-level=high
 ```
+
+If Docker is available, also run `docker compose config --quiet`, `docker compose
+build`, and the startup commands in `docs/operations.md`. The CI container job
+performs those checks plus liveness, readiness, and authenticated workspace probes.

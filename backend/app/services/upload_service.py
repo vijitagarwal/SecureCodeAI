@@ -36,7 +36,7 @@ def _validate_filename(filename: str | None) -> str:
     return filename
 
 
-def _store_and_scan(bind, upload: UploadFile | None) -> ScanUploadResponse:
+def _store_and_scan(bind, upload: UploadFile | None, request_id: str | None = None) -> ScanUploadResponse:
     # A SQLAlchemy Session is not thread-safe. The request dependency supplies
     # the configured Engine/bind; the blocking worker owns its own Session.
     db = sessionmaker(bind=bind, autoflush=False, autocommit=False)()
@@ -62,7 +62,7 @@ def _store_and_scan(bind, upload: UploadFile | None) -> ScanUploadResponse:
         # Keep all blocking database/file/subprocess work off the ASGI event loop.
         scan = create_scan(db, name=filename, scanner_names=["bandit"])
         db.commit()
-        run_scan(db, scan, str(upload_path), BanditScanner(allowed_root=upload_directory))
+        run_scan(db, scan, str(upload_path), BanditScanner(allowed_root=upload_directory), request_id=request_id)
         db.refresh(scan)
         return ScanUploadResponse(
             scan_id=scan.id, status=scan.status, filename=filename,
@@ -84,9 +84,11 @@ def _store_and_scan(bind, upload: UploadFile | None) -> ScanUploadResponse:
         db.close()
 
 
-async def upload_python_file(db: Session, upload: UploadFile | None) -> ScanUploadResponse:
+async def upload_python_file(
+    db: Session, upload: UploadFile | None, *, request_id: str | None = None
+) -> ScanUploadResponse:
     try:
-        return await run_in_threadpool(_store_and_scan, db.get_bind(), upload)
+        return await run_in_threadpool(_store_and_scan, db.get_bind(), upload, request_id)
     finally:
         if upload:
             await upload.close()

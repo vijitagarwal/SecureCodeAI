@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added bounded scanner pipes, approved scanner roots, request IDs, liveness and
+  readiness probes, report byte limits, strict request framing checks, and explicit
+  local fallback provenance for remote analysis failures.
+- Added adversarial boundary/process tests, a threat model, operations guide,
+  dependency audit, and CI container smoke checks.
 - Added bounded optional Gemini analysis with startup configuration validation and
   persisted provider/model provenance.
 - Added explicit analysis capacity controls and CI coverage for backend, frontend,

@@ -46,6 +46,8 @@ Deterministic mock guidance or bounded Gemini provider
 
 ### Security controls
 
+- Public `/api/live` and database-backed `/api/health` are separated; all workspace
+  routes require the bearer key before multipart parsing and return request IDs.
 - Bearer-key authentication fails closed before multipart parsing.
 - Constant-time API-key comparison and no credential persistence in the browser.
 - Request body, upload size, upload time, scanner output, finding count, scan time,
@@ -60,7 +62,8 @@ Deterministic mock guidance or bounded Gemini provider
 - Error responses and logs avoid source, credentials, subprocess stderr, and database
   internals.
 - Security headers, non-root containers, dropped container capabilities, and
-  loopback-only local Compose ports are configured.
+  loopback-only local Compose ports are configured. Application containers use
+  read-only root filesystems with tmpfs scratch space.
 
 ### Analysis boundary
 
@@ -91,6 +94,7 @@ Backend:
 ```text
 cd backend
 python -m pytest tests -q
+pip-audit -r requirements.txt
 ```
 
 Frontend:
@@ -104,9 +108,13 @@ npm run build
 npm audit --omit=dev --audit-level=high
 ```
 
-CI also runs an opt-in PostgreSQL migration/workflow test. Live Docker, PostgreSQL,
-Gemini, and browser-container behavior depend on the environment that runs them;
-the repository does not claim those integrations without executing them.
+CI provisions PostgreSQL for the migration/workflow test, audits Python and npm
+dependencies, and builds/smoke-tests the Compose containers. Live Gemini and
+browser interaction still depend on credentials or a browser environment; local
+Docker and PostgreSQL are unavailable in the current workspace.
+
+The practical threat model is documented in `docs/threat-model.md`; operator
+startup, probes, data lifecycle, and failure diagnostics are in `docs/operations.md`.
 
 ## Deliberate future extensions
 

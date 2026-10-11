@@ -17,11 +17,13 @@ deterministic, with remote AI separately configured and tested at its boundary.
 
 ## Baseline
 
-- Clean working tree at `5becbe8`.
+- Assurance work began from clean `4151dc9`; current local checkpoints are listed
+  in Git history.
 - Python 3.14.2, Node 24.12.0, npm 11.6.2 available.
-- Backend: `python -m pytest tests -q`: 44 passed.
+- Backend baseline: `python -m pytest tests -q`: 93 passed, 1 skipped.
 - Frontend lint/typecheck/build: verified locally with the checked-in lockfile.
-- Default PostgreSQL migration command: timed out; live PostgreSQL unverified.
+- Docker, Podman, psql, and pg_ctl are unavailable locally; live PostgreSQL and
+  container startup require CI or a host with those services.
 
 ## Milestones
 
@@ -70,3 +72,19 @@ deterministic, with remote AI separately configured and tested at its boundary.
   and a production dependency audit.
 - Live Gemini, Docker, PostgreSQL, and browser-container behavior still require
   environment-specific verification when those services are available.
+
+## Milestone 4 — assurance hardening
+
+- Scanner output is drained through a bounded pipe rather than an unbounded disk
+  spool; timeouts reap direct processes and POSIX process groups.
+- Upload worker sessions are thread-owned, exclusive-file cleanup cannot delete a
+  pre-existing collision, and request cancellation retains active capacity until
+  bounded work finishes.
+- Approved scanner roots, request framing validation, oversized-header rejection,
+  explicit CORS origins, report byte limits, liveness/readiness separation, request
+  IDs, and generic unexpected-error responses are covered.
+- Optional Gemini failures can persist explicitly labeled deterministic fallback
+  guidance. The UI distinguishes that fallback from remote AI.
+- Focused assurance suites pass; full rerun and final checks remain before the
+  release checkpoint. Docker and live PostgreSQL remain environment-blocked locally
+  but are now CI jobs.

@@ -26,6 +26,8 @@ jobs:
       - run: pip install -r backend/requirements-dev.txt
       - run: python -m pytest tests -q
         working-directory: backend
+      - run: pip-audit -r requirements.txt
+        working-directory: backend
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -44,3 +46,23 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm audit --omit=dev --audit-level=high
+  containers:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-postgres-password
+      API_KEY: ci-workspace-key-not-for-use-123456
+      POSTGRES_PORT: 55432
+      BACKEND_PORT: 58000
+      FRONTEND_PORT: 53000
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose build
+      - run: |
+          set -euo pipefail
+          trap 'docker compose down -v --remove-orphans' EXIT
+          docker compose up -d
+          curl --fail --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:58000/api/live
+          curl --fail --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:58000/api/health
+          curl --fail --retry 5 --retry-delay 1 --retry-all-errors \
+            -H "Authorization: Bearer ${API_KEY}" http://127.0.0.1:58000/api/workspace

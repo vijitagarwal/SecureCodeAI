@@ -19,8 +19,11 @@ class ScanExecutionError(Exception):
     pass
 
 
-def run_scan(db: Session, scan: Scan, target_path: str, scanner: SecurityScanner) -> None:
+def run_scan(
+    db: Session, scan: Scan, target_path: str, scanner: SecurityScanner, *, request_id: str | None = None
+) -> None:
     try:
+        logger.info("scan started scan_id=%s request_id=%s", scan.id, request_id or "unknown")
         update_scan_status(db, scan, ScanStatus.RUNNING)
         db.commit()
         result = scanner.scan(target_path)
@@ -53,17 +56,21 @@ def run_scan(db: Session, scan: Scan, target_path: str, scanner: SecurityScanner
         scan.failure_reason = None
         update_scan_status(db, scan, ScanStatus.COMPLETED)
         db.commit()
+        logger.info(
+            "scan completed scan_id=%s findings=%s request_id=%s",
+            scan.id, scan.total_findings, request_id or "unknown",
+        )
     except ScannerError as error:
         db.rollback()
-        logger.warning("Scanner failed")
+        logger.warning("scan failed scan_id=%s request_id=%s", scan.id, request_id or "unknown")
         _mark_failed(db, scan, failure_reason=error.public_message)
     except (SQLAlchemyError, ScanExecutionError):
         db.rollback()
-        logger.error("Scan failed due to an internal error")
+        logger.error("scan persistence failed scan_id=%s request_id=%s", scan.id, request_id or "unknown")
         _mark_failed(db, scan)
     except Exception:
         db.rollback()
-        logger.error("Scan failed due to an unexpected error")
+        logger.error("scan failed unexpectedly scan_id=%s request_id=%s", scan.id, request_id or "unknown")
         _mark_failed(db, scan)
     finally:
         try:

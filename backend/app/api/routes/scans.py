@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse
 import json
 from sqlalchemy.orm import Session
@@ -24,10 +24,11 @@ router = APIRouter(dependencies=[Depends(require_workspace_access)])
 
 @router.post("/scans", response_model=ScanUploadResponse, status_code=201)
 async def create_scan_from_upload(
+    request: Request,
     file: UploadFile | None = File(default=None),
     db: Session = Depends(get_db),
 ) -> ScanUploadResponse:
-    return await upload_python_file(db, file)
+    return await upload_python_file(db, file, request_id=getattr(request.state, "request_id", None))
 
 
 @router.get("/scans", response_model=ScanListResponse)
