@@ -33,7 +33,7 @@ export function FindingCard({ finding, api, workspace }: { finding: Finding; api
     </>}
     {error && <p className="error" role="alert">{error}</p>}
     {analysis && <section className="analysis" aria-label="Security analysis">
-      <p className="eyebrow">{(analysis.provider ?? workspace.analysis_provider) === "mock" ? "LOCAL RULE-BASED GUIDANCE · NO LLM" : `AI ANALYSIS · ${analysis.provider ?? workspace.analysis_provider}${analysis.model ? ` / ${analysis.model}` : ""}`}</p>
+      <p className="eyebrow">{analysis.provider === "mock-fallback" ? "LOCAL FALLBACK GUIDANCE · REMOTE AI UNAVAILABLE" : (analysis.provider ?? workspace.analysis_provider) === "mock" ? "LOCAL RULE-BASED GUIDANCE · NO LLM" : `AI ANALYSIS · ${analysis.provider ?? workspace.analysis_provider}${analysis.model ? ` / ${analysis.model}` : ""}`}</p>
       <h4>{analysis.finding_summary}</h4>
       <p><strong>Root cause:</strong> {analysis.root_cause}</p>
       <p><strong>Security impact:</strong> {analysis.security_impact}</p>

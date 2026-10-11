@@ -1,4 +1,5 @@
 import asyncio
+import re
 import threading
 
 from fastapi import HTTPException
@@ -31,6 +32,9 @@ class RequestBoundaryMiddleware:
             await JSONResponse({"detail": detail}, status_code=code, headers=headers)(scope, receive, send)
 
         headers = dict(scope["headers"])
+        for name in (b"authorization", b"content-length", b"transfer-encoding"):
+            if sum(key == name for key, _ in scope["headers"]) > 1:
+                return await reject(400, "Ambiguous request headers.")
         auth = headers.get(b"authorization", b"").decode("latin-1").split(" ", 1)
         credentials = (
             HTTPAuthorizationCredentials(scheme=auth[0], credentials=auth[1])
@@ -51,11 +55,13 @@ class RequestBoundaryMiddleware:
         try:
             if scope["method"] in {"POST", "PUT", "PATCH"}:
                 limit = settings.max_upload_size_bytes + 65536 if is_scan else 65536
-                try:
-                    length = int(headers.get(b"content-length", b"0"))
-                except ValueError:
+                raw_length = headers.get(b"content-length", b"0")
+                if not re.fullmatch(rb"[0-9]{1,20}", raw_length):
                     return await reject(400, "Invalid request length.")
-                if length < 0 or length > limit:
+                if b"content-length" in headers and b"transfer-encoding" in headers:
+                    return await reject(400, "Ambiguous request framing.")
+                length = int(raw_length)
+                if length > limit:
                     return await reject(413, "The request exceeds the configured size limit.")
 
                 async def read_body():
@@ -64,16 +70,21 @@ class RequestBoundaryMiddleware:
                         message = await receive()
                         if message["type"] == "http.disconnect":
                             return None
-                        body.extend(message.get("body", b""))
-                        if len(body) > limit:
+                        chunk = message.get("body", b"")
+                        if len(body) + len(chunk) > limit:
                             raise OverflowError
+                        body.extend(chunk)
                         if not message.get("more_body", False):
+                            if b"content-length" in headers and len(body) != length:
+                                raise ValueError
                             return bytes(body)
 
                 try:
                     body = await asyncio.wait_for(read_body(), timeout=30)
                 except OverflowError:
                     return await reject(413, "The request exceeds the configured size limit.")
+                except ValueError:
+                    return await reject(400, "Request length does not match its body.")
                 except TimeoutError:
                     return await reject(408, "Upload timed out.")
                 if body is None:
@@ -87,6 +98,8 @@ class RequestBoundaryMiddleware:
                         return {"type": "http.request", "body": body, "more_body": False}
                     return await receive()
 
+                if is_scan or is_analysis:
+                    return await _finish_work(self.app(scope, replay, send))
                 return await self.app(scope, replay, send)
             return await self.app(scope, receive, send)
         finally:
@@ -94,3 +107,25 @@ class RequestBoundaryMiddleware:
                 self.scan_slots.release()
             if is_analysis:
                 self.analysis_slots.release()
+
+
+async def _finish_work(awaitable):
+    """Retain slots, sessions and upload handles until bounded worker work finishes.
+
+    asyncio task cancellation can otherwise abandon an AnyIO worker thread. A
+    disconnected caller does not cancel a submitted scan; it can reopen history.
+    Force-killing the API process still requires offline operator recovery.
+    """
+    task = asyncio.create_task(awaitable)
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        # Retrieve a possible exception so it is not logged with request data.
+        if not task.cancelled():
+            task.exception()
+        raise asyncio.CancelledError
+    return task.result()

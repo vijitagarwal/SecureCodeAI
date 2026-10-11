@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 from dataclasses import asdict
 
@@ -54,12 +55,20 @@ class GeminiSecurityProvider(LLMProvider):
                     "POST", f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
                     headers={"x-goog-api-key": self._key}, json=request,
                 ) as response:
-                    response.raise_for_status()
-                    body = bytearray()
-                    for chunk in response.iter_bytes():
-                        body.extend(chunk)
-                        if len(body) > 128 * 1024 or time.monotonic() > deadline:
-                            raise ProviderError("Provider response exceeded its size limit.")
+                    timer = threading.Timer(settings.ai_timeout_seconds, response.close)
+                    timer.daemon = True
+                    timer.start()
+                    try:
+                        response.raise_for_status()
+                        body = bytearray()
+                        for chunk in response.iter_bytes():
+                            body.extend(chunk)
+                            if len(body) > settings.max_ai_response_bytes:
+                                raise ProviderError("Provider response exceeded its size limit.")
+                            if time.monotonic() > deadline:
+                                raise ProviderError("Provider response exceeded its time limit.")
+                    finally:
+                        timer.cancel()
             envelope = json.loads(body)
             candidates = envelope["candidates"]
             if len(candidates) != 1 or candidates[0].get("finishReason") != "STOP":

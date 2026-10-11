@@ -12,6 +12,7 @@ from app.schemas.analysis import AnalysisResponse
 from app.schemas.scan import ScanDetailResponse, ScanListResponse, ScanResponse, ScanUploadResponse
 from app.llm.base import ProviderError
 from app.llm.factory import get_security_analysis_provider
+from app.llm.mock import MockSecurityProvider
 from app.services.analysis_service import analyze_finding
 from app.services.upload_service import upload_python_file
 from app.security.access import require_workspace_access
@@ -128,6 +129,16 @@ def create_finding_analysis(finding_id: int, db: Session = Depends(get_db)) -> A
         provider = get_security_analysis_provider()
         return analyze_finding(db, finding, provider)
     except ProviderError:
+        if settings.ai_provider == "gemini":
+            # Preserve useful deterministic review when the optional remote
+            # service is unavailable. Explicit provenance prevents this
+            # fallback from being presented as a Gemini response.
+            fallback = MockSecurityProvider()
+            fallback.name = "mock-fallback"
+            try:
+                return analyze_finding(db, finding, fallback)
+            except ProviderError:
+                pass
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Security analysis is currently unavailable.",

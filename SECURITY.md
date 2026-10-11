@@ -21,7 +21,14 @@ tenant-aware authentication, authorization, and an external rate limiter.
 
 ## LLM status and trust boundary
 
-The current analysis endpoint uses a deterministic local mock provider. It receives only the rule, finding text, snippet, and classification; it does not receive credentials, environment variables, or server filesystem paths. Provider output is validated with bounded schemas before persistence. Any future remote provider must preserve this boundary, apply timeouts, avoid logging source or credentials, and keep remediation behind developer review.
+The default analysis endpoint uses a deterministic local mock provider. It receives
+only the rule, finding text, snippet, and classification; it does not receive
+credentials, environment variables, or server filesystem paths. Provider output is
+validated with bounded schemas before persistence. The configured Gemini provider
+also has a wall-clock response timer, decompressed response-size limit, no
+redirects/retries, and generic failure handling. When it fails, the API may save
+deterministic local fallback guidance under explicit `mock-fallback` provenance;
+the UI does not represent that result as Gemini output.
 
 AI analysis is separate from the static scanner result. It cannot change scanner severity or silently overwrite source. Proposed code and diffs are stored as review material only and are never executed or automatically applied.
 

@@ -80,6 +80,15 @@ def test_timeout_and_oversized_response():
     provider = GeminiSecurityProvider(transport=httpx.MockTransport(timeout))
     with pytest.raises(ProviderError):
         provider.analyze(**CONTEXT)
+
+
+def test_response_limit_uses_configured_decompressed_limit(monkeypatch):
+    monkeypatch.setattr(settings, "max_ai_response_bytes", 32)
+    provider = GeminiSecurityProvider(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b"x" * 33))
+    )
+    with pytest.raises(ProviderError, match="size limit"):
+        provider.analyze(**CONTEXT)
     provider = GeminiSecurityProvider(transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b"x" * 140000)))
     with pytest.raises(ProviderError):
         provider.analyze(**CONTEXT)

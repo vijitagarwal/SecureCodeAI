@@ -18,18 +18,24 @@ logger = logging.getLogger(__name__)
 def analyze_finding(db: Session, finding: Finding, provider: LLMProvider) -> AnalysisResponse:
     finding_id = finding.id
     try:
-        # Serialize competing requests for one finding on PostgreSQL. The unique
-        # constraint below is also the final arbiter on SQLite.
-        db.execute(select(Finding.id).where(Finding.id == finding_id).with_for_update()).scalar_one()
         existing = db.scalar(select(SecurityAnalysis).where(SecurityAnalysis.finding_id == finding_id))
         if existing is not None:
             return AnalysisResponse.model_validate(existing)
+        # Do not hold a database transaction or row lock across provider I/O.
+        # Concurrent requests may both calculate guidance; the unique finding_id
+        # constraint makes the first committed result authoritative.
+        context = {
+            "rule_id": finding.rule_id,
+            "title": finding.title,
+            "description": finding.description,
+            "snippet": finding.code_snippet,
+            "classification": classify_rule(finding.rule_id),
+            "severity": finding.severity.value,
+            "confidence": finding.confidence.value,
+        }
+        db.rollback()
         try:
-            output = provider.analyze(
-                rule_id=finding.rule_id, title=finding.title, description=finding.description,
-                snippet=finding.code_snippet, classification=classify_rule(finding.rule_id),
-                severity=finding.severity.value, confidence=finding.confidence.value,
-            )
+            output = provider.analyze(**context)
         except ProviderError:
             raise
         except Exception as error:

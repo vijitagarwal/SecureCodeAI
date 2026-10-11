@@ -1,8 +1,10 @@
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -124,31 +126,74 @@ def _safe_basename(file_path: str) -> str:
 
 
 def _execute(command: list[str], timeout: int, directory: Path) -> subprocess.CompletedProcess:
-    """Poll bounded disk output; do not accumulate subprocess pipes in RAM."""
+    """Drain a bounded pipe, terminate on overflow/deadline, and reap the process.
+
+    No output spool can fill the disk between polling intervals. POSIX children
+    share a new process group; Windows guarantees termination of the direct child.
+    This is not a sandbox against a compromised scanner.
+    """
     environment = {
         key: value for key, value in os.environ.items()
         if key.upper() in {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL"}
     }
-    with tempfile.TemporaryDirectory(dir=directory) as sandbox, tempfile.TemporaryFile(dir=directory) as output:
+    with tempfile.TemporaryDirectory(dir=directory) as sandbox:
         environment.update({key: sandbox for key in ("HOME", "USERPROFILE", "LOCALAPPDATA", "APPDATA")})
         with subprocess.Popen(
-            command, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.DEVNULL,
-            shell=False, cwd=sandbox, env=environment,
+            command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            # Keep the process current directory in the approved upload area.
+            # The temporary directory is configuration state only, not cwd;
+            # this avoids Windows retaining a cwd handle during cleanup.
+            shell=False, cwd=directory, env=environment, start_new_session=os.name == "posix",
         ) as process:
+            output = bytearray()
+            overflow = threading.Event()
+            finished = threading.Event()
+            failures = []
+
+            def drain():
+                try:
+                    while chunk := process.stdout.read1(65536):
+                        if len(output) + len(chunk) > settings.max_scanner_output_bytes:
+                            overflow.set()
+                            return
+                        output.extend(chunk)
+                except OSError:
+                    failures.append(True)
+                finally:
+                    finished.set()
+
+            reader = threading.Thread(target=drain, name="scanner-output", daemon=True)
+            reader.start()
             try:
                 deadline = time.monotonic() + timeout
-                while process.poll() is None:
-                    if output.tell() > settings.max_scanner_output_bytes:
+                while process.poll() is None or not finished.is_set():
+                    if overflow.is_set():
                         raise ScannerError("Scanner output limit exceeded.")
                     if time.monotonic() >= deadline:
                         raise subprocess.TimeoutExpired(command, timeout)
-                    time.sleep(0.025)
-                if output.tell() > settings.max_scanner_output_bytes:
+                    time.sleep(0.01)
+                if overflow.is_set():
                     raise ScannerError("Scanner output limit exceeded.")
-                output.seek(0)
-                stdout = output.read(settings.max_scanner_output_bytes + 1).decode("utf-8", errors="strict")
+                if failures:
+                    raise ScannerError("Scanner output could not be read.")
+                try:
+                    stdout = output.decode("utf-8", errors="strict")
+                except UnicodeDecodeError as error:
+                    raise ScannerError("Scanner output was not UTF-8.") from error
                 return subprocess.CompletedProcess(command, process.returncode, stdout, "")
             finally:
-                if process.poll() is None:
+                if os.name == "posix":
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                elif process.poll() is None:
                     process.kill()
                 process.wait()
+                process.stdout.close()
+                reader.join(timeout=2)
+                # On Windows a compromised descendant may keep a pipe handle
+                # open. Closing our end lets the reader exit without retaining
+                # the temporary sandbox.
+                if reader.is_alive():
+                    raise ScannerError("Scanner output did not close.")

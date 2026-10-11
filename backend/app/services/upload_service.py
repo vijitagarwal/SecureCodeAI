@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -36,15 +36,21 @@ def _validate_filename(filename: str | None) -> str:
     return filename
 
 
-def _store_and_scan(db: Session, upload: UploadFile | None) -> ScanUploadResponse:
+def _store_and_scan(bind, upload: UploadFile | None) -> ScanUploadResponse:
+    # A SQLAlchemy Session is not thread-safe. The request dependency supplies
+    # the configured Engine/bind; the blocking worker owns its own Session.
+    db = sessionmaker(bind=bind, autoflush=False, autocommit=False)()
     upload_path: Path | None = None
+    owns_path = False
     try:
         filename = _validate_filename(upload.filename if upload else None)
         upload_directory = Path(settings.upload_dir)
         upload_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         upload_path = upload_directory / f"{uuid4().hex}.py"
         bytes_written = 0
-        with os.fdopen(os.open(upload_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as target:
+        descriptor = os.open(upload_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+        owns_path = True
+        with os.fdopen(descriptor, "wb") as target:
             while chunk := upload.file.read(CHUNK_SIZE):
                 bytes_written += len(chunk)
                 if bytes_written > settings.max_upload_size_bytes:
@@ -70,16 +76,17 @@ def _store_and_scan(db: Session, upload: UploadFile | None) -> ScanUploadRespons
         logger.error("Upload storage failed")
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The upload could not be stored.")
     finally:
-        if upload_path is not None:
+        if owns_path and upload_path is not None:
             try:
                 upload_path.unlink(missing_ok=True)
             except OSError:
                 logger.error("Temporary upload cleanup failed")
+        db.close()
 
 
 async def upload_python_file(db: Session, upload: UploadFile | None) -> ScanUploadResponse:
     try:
-        return await run_in_threadpool(_store_and_scan, db, upload)
+        return await run_in_threadpool(_store_and_scan, db.get_bind(), upload)
     finally:
         if upload:
             await upload.close()

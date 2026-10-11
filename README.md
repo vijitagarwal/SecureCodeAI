@@ -134,8 +134,12 @@ scanner/provider work off the async event loop and rejects excess concurrent wor
 | `GEMINI_API_KEY` | empty | Required when `AI_PROVIDER=gemini`; never sent to the frontend |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model identifier |
 | `AI_TIMEOUT_SECONDS` | `20` | Per-provider request timeout, from 1 to 60 seconds |
+| `MAX_AI_RESPONSE_BYTES` | `131072` | Maximum decompressed provider response size |
 | `MAX_CONCURRENT_SCANS` | `2` | Per-worker scanner capacity |
 | `MAX_CONCURRENT_ANALYSES` | `2` | Per-worker analysis capacity |
 
-The Gemini boundary is covered with a transport double in the backend tests. No
-live provider credential is stored in the repository or required by CI.
+The Gemini boundary is covered with a transport double in the backend tests. If a
+configured Gemini request fails, the API can save deterministic local guidance with
+provider provenance `mock-fallback`; the UI identifies that remote AI was
+unavailable. No live provider credential is stored in the repository or required by
+CI.

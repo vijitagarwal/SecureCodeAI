@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     gemini_model: str = Field(default="gemini-2.5-flash", pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$")
     ai_timeout_seconds: int = Field(default=20, ge=1, le=60)
+    max_ai_response_bytes: int = Field(default=128 * 1024, gt=0, le=1024 * 1024)
     api_key: SecretStr | None = Field(default=None, min_length=32)
     max_concurrent_scans: int = Field(default=2, ge=1, le=8)
     max_concurrent_analyses: int = Field(default=2, ge=1, le=8)

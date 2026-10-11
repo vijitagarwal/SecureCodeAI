@@ -193,6 +193,27 @@ def test_unknown_analysis_provider_returns_safe_503(upload_client, monkeypatch):
     assert response.json()["detail"] == "Security analysis is currently unavailable."
 
 
+def test_remote_analysis_failure_saves_explicit_local_fallback(upload_client, monkeypatch):
+    client, _, _ = upload_client
+    from app.llm.base import ProviderError
+
+    monkeypatch.setattr("app.core.config.settings.ai_provider", "gemini")
+    monkeypatch.setattr(
+        "app.api.routes.scans.get_security_analysis_provider",
+        lambda: (_ for _ in ()).throw(ProviderError("provider unavailable")),
+    )
+    scan_response = client.post(
+        "/api/scans",
+        files={"file": ("example.py", b'password = "not-a-real-secret"\n')},
+    )
+    finding_id = client.get(f"/api/scans/{scan_response.json()['scan_id']}/findings").json()[0]["id"]
+
+    response = client.post(f"/api/findings/{finding_id}/analysis")
+
+    assert response.status_code == 201
+    assert response.json()["provider"] == "mock-fallback"
+
+
 def test_scanner_failure_marks_scan_failed_and_cleans_file(upload_client, monkeypatch):
     client, session_factory, upload_dir = upload_client
     monkeypatch.setattr(
