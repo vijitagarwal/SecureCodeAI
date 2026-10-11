@@ -87,7 +87,7 @@ deterministic, with remote AI separately configured and tested at its boundary.
   guidance. The UI distinguishes that fallback from remote AI.
 - Stale queued/running records are reconciled as failed after a bounded grace window
   on protected reads, so worker crashes do not leave scans permanently undeletable.
-- Full backend rerun: 120 passed, 2 skipped (PostgreSQL integration and POSIX-only
+- Full backend rerun: 122 passed, 2 skipped (PostgreSQL integration and POSIX-only
   descendant fixture on Windows). Frontend lint, typecheck, 6 interaction tests,
   production build, npm audit, YAML parsing, and diff checks pass.
 - Docker, live PostgreSQL, live Gemini, and browser/container interaction remain
