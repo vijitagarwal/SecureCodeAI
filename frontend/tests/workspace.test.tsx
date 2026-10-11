@@ -106,3 +106,17 @@ test("failed requests show an error and can be retried", async () => {
   await user.click(screen.getByRole("button", { name: "Refresh" }));
   expect(await screen.findByRole("button", { name: /example.py completed/ })).toBeInTheDocument();
 });
+
+test("remote failure fallback is identified as local guidance", async () => {
+  mockApi({
+    "GET /api/findings/12/analysis": {
+      finding_summary: "Fallback guidance", root_cause: "Provider unavailable", security_impact: "Review required",
+      false_positive_assessment: "Verify manually", remediation: "Use a safe parser", fixed_code: null,
+      diff: null, confidence: 0, provider: "mock-fallback", model: null,
+    },
+  });
+  const user = await unlock();
+  await user.click(await screen.findByRole("button", { name: /example.py completed/ }));
+  await user.click(screen.getByRole("button", { name: "View saved analysis" }));
+  expect(await screen.findByText("LOCAL FALLBACK GUIDANCE · REMOTE AI UNAVAILABLE")).toBeInTheDocument();
+});

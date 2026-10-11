@@ -62,7 +62,7 @@ def _store_and_scan(bind, upload: UploadFile | None) -> ScanUploadResponse:
         # Keep all blocking database/file/subprocess work off the ASGI event loop.
         scan = create_scan(db, name=filename, scanner_names=["bandit"])
         db.commit()
-        run_scan(db, scan, str(upload_path), BanditScanner())
+        run_scan(db, scan, str(upload_path), BanditScanner(allowed_root=upload_directory))
         db.refresh(scan)
         return ScanUploadResponse(
             scan_id=scan.id, status=scan.status, filename=filename,

@@ -15,6 +15,8 @@ def require_workspace_access(
     """One operator-owned workspace; fail closed until an access key is configured."""
     if settings.api_key is None:
         raise HTTPException(503, "Workspace access is not configured. Set API_KEY on the server.")
+    if credentials is None or len(credentials.credentials) > 256:
+        raise HTTPException(401, "A valid workspace access key is required.", headers={"WWW-Authenticate": "Bearer"})
     if credentials is None or not secrets.compare_digest(
         credentials.credentials.encode(), settings.api_key.get_secret_value().encode()
     ):

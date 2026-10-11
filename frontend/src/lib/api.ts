@@ -24,7 +24,8 @@ const baseUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").rep
 export function createApi(key: string) {
   return async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const timeout = new AbortController();
-    const timer = setTimeout(() => timeout.abort(), 65000);
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; timeout.abort(); }, 65000);
     try {
       const headers = new Headers(options.headers);
       headers.set("Authorization", `Bearer ${key}`);
@@ -41,7 +42,8 @@ export function createApi(key: string) {
       if (payload === null) throw new Error("The API returned an invalid response.");
       return payload as T;
     } catch (error) {
-      if (timeout.signal.aborted) throw new Error("Request timed out. Refresh scan history before retrying an upload.");
+      if (timedOut) throw new Error("Request timed out. Refresh scan history before retrying.");
+      if (error instanceof DOMException && error.name === "AbortError") throw error;
       if (error instanceof TypeError) throw new Error("Cannot reach the API. Check that the backend is running, then retry.");
       throw error;
     } finally {

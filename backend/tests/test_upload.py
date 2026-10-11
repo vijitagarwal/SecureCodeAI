@@ -146,6 +146,7 @@ def test_scan_and_api_responses_include_security_headers(upload_client):
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
+    assert response.headers["x-request-id"]
 
 
 def test_finding_analysis_can_be_generated_and_retrieved(upload_client):
@@ -173,6 +174,19 @@ def test_analysis_for_unknown_finding_is_not_found(upload_client):
     response = client.post("/api/findings/999999/analysis")
 
     assert response.status_code == 404
+
+
+def test_report_size_limit_is_enforced_before_export(upload_client, monkeypatch):
+    client, _, _ = upload_client
+    monkeypatch.setattr("app.api.routes.scans.settings.max_report_bytes", 1)
+    scan_response = client.post(
+        "/api/scans", files={"file": ("example.py", b'password = "not-a-real-secret"\n')}
+    )
+
+    report = client.get(f"/api/scans/{scan_response.json()['scan_id']}/report")
+
+    assert report.status_code == 409
+    assert report.json()["detail"] == "This report exceeds the configured export size. Retrieve findings in pages."
 
 
 def test_unknown_analysis_provider_returns_safe_503(upload_client, monkeypatch):

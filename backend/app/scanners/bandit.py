@@ -19,13 +19,25 @@ class BanditScanner(SecurityScanner):
     _MAX_TITLE_LENGTH = 500
     _MAX_SNIPPET_LENGTH = 10_000
 
-    def __init__(self, timeout_seconds: int | None = None):
+    def __init__(self, timeout_seconds: int | None = None, allowed_root: str | Path | None = None):
         self.timeout_seconds = timeout_seconds if timeout_seconds is not None else settings.scanner_timeout_seconds
+        self.allowed_root = Path(allowed_root).resolve() if allowed_root is not None else None
         if self.timeout_seconds <= 0:
             raise ValueError("Bandit timeout must be positive.")
 
     def scan(self, target_path: str) -> ScannerResult:
-        target_path = str(Path(target_path).resolve())
+        candidate = Path(target_path)
+        if self.allowed_root is not None:
+            if candidate.is_symlink():
+                raise ScannerError("Scanner target must not be a symbolic link.")
+            try:
+                resolved = candidate.resolve(strict=True)
+            except OSError as error:
+                raise ScannerError("Scanner target is unavailable.") from error
+            if resolved.parent != self.allowed_root or not resolved.is_file():
+                raise ScannerError("Scanner target is outside the approved directory.")
+            candidate = resolved
+        target_path = str(candidate.resolve())
         command = [sys.executable, "-I", "-m", "bandit", "--ignore-nosec", "-f", "json", target_path]
         try:
             completed = _execute(command, self.timeout_seconds, Path(target_path).parent)

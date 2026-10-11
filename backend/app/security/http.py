@@ -25,7 +25,7 @@ class RequestBoundaryMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or not scope["path"].startswith("/api/"):
             return await self.app(scope, receive, send)
-        if scope["path"] == "/api/health" or scope["method"] == "OPTIONS":
+        if scope["path"] in {"/api/health", "/api/live"} or scope["method"] == "OPTIONS":
             return await self.app(scope, receive, send)
 
         async def reject(code, detail, headers=None):

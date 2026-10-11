@@ -45,3 +45,16 @@ def test_health_does_not_expose_database_error_details(monkeypatch):
         "backend": {"status": "ok"},
         "database": {"status": "unavailable"},
     }
+
+
+def test_liveness_does_not_require_database(monkeypatch):
+    class BrokenEngine:
+        def connect(self):
+            raise AssertionError("liveness must not probe the database")
+
+    monkeypatch.setattr("app.api.routes.health.engine", BrokenEngine())
+    response = TestClient(app).get("/api/live")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "backend": "ok"}
+    assert response.headers["x-request-id"]

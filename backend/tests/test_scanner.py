@@ -119,3 +119,17 @@ def test_secure_counterparts(tmp_path):
     path = tmp_path / "secure.py"
     path.write_text("import json\nimport secrets\nvalue = json.loads('{}')\ntoken = secrets.token_hex(32)\n", encoding="utf-8")
     assert BanditScanner().scan(str(path)).findings == []
+
+
+def test_scanner_can_restrict_targets_to_approved_directory(tmp_path):
+    approved = tmp_path / "approved"
+    approved.mkdir()
+    target = approved / "target.py"
+    target.write_text("value = 1\n", encoding="utf-8")
+    outside = tmp_path / "outside.py"
+    outside.write_text("value = 1\n", encoding="utf-8")
+
+    scanner = BanditScanner(allowed_root=approved)
+    assert scanner.scan(str(target)).findings == []
+    with pytest.raises(ScannerError, match="outside"):
+        scanner.scan(str(outside))

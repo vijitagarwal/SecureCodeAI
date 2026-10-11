@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import JSONResponse
+import json
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -83,18 +84,22 @@ def download_report(scan_id: int, db: Session = Depends(get_db)) -> JSONResponse
     findings = get_findings_for_scan(db, scan_id, limit=settings.max_findings + 1)
     if len(findings) > settings.max_findings:
         raise HTTPException(409, "This legacy scan exceeds the report limit. Retrieve its paginated findings.")
+    report = {
+        "report_version": 1,
+        "scan": ScanResponse.model_validate(scan).model_dump(mode="json"),
+        "findings": [
+            {**FindingResponse.from_model(finding).model_dump(mode="json"),
+             "analysis": AnalysisResponse.model_validate(finding.analysis).model_dump(mode="json")
+             if finding.analysis else None}
+            for finding in findings
+        ],
+    }
+    encoded = json.dumps(report, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > settings.max_report_bytes:
+        raise HTTPException(409, "This report exceeds the configured export size. Retrieve findings in pages.")
     return JSONResponse(
         headers={"Content-Disposition": f'attachment; filename="securecode-scan-{scan_id}.json"'},
-        content={
-            "report_version": 1,
-            "scan": ScanResponse.model_validate(scan).model_dump(mode="json"),
-            "findings": [
-                {**FindingResponse.from_model(finding).model_dump(mode="json"),
-                 "analysis": AnalysisResponse.model_validate(finding.analysis).model_dump(mode="json")
-                 if finding.analysis else None}
-                for finding in findings
-            ],
-        },
+        content=report,
     )
 
 

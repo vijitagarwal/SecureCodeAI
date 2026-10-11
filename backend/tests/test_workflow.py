@@ -19,6 +19,7 @@ def test_access_is_required_before_upload_parsing(monkeypatch):
             response = client.request(method, path)
             assert response.status_code == 401
             assert response.headers["cache-control"] == "no-store"
+            assert response.headers["x-request-id"]
         assert client.get("/api/scans", headers={"Authorization": "Bearer invalid"}).status_code == 401
 
 

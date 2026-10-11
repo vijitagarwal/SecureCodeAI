@@ -2,7 +2,8 @@
 
 ## Health
 
-`GET /api/health` is the unauthenticated readiness probe. It checks that the API
+`GET /api/live` is an unauthenticated process liveness probe and does not access
+the database. `GET /api/health` is the unauthenticated readiness probe. It checks that the API
 process is responding and that the configured database schema can be queried:
 
 ```json

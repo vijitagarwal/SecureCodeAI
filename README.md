@@ -20,7 +20,7 @@ The complete stack can then be started with:
 docker compose up --build
 ```
 
-The frontend is available at http://localhost:3000 and the API at http://localhost:8000. For a non-Docker backend setup, start PostgreSQL first and then run the backend:
+The frontend is available at http://localhost:3000 and the API at http://localhost:8000. `GET /api/live` is a process liveness probe and `GET /api/health` is the database readiness probe. For a non-Docker backend setup, start PostgreSQL first and then run the backend:
 
 ```bash
 cd backend

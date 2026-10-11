@@ -29,3 +29,9 @@ def health(response: Response) -> dict[str, object]:
         "backend": {"status": "ok"},
         "database": database,
     }
+
+
+@router.get("/live")
+def live() -> dict[str, str]:
+    """Process liveness probe; unlike health, it does not require the database."""
+    return {"status": "ok", "backend": "ok"}
