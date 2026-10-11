@@ -7,7 +7,7 @@ from app.db.database import get_db
 from app.db.repositories.finding_repository import get_findings_for_scan
 from app.core.config import settings
 from app.db.models import FindingSeverity, ScanStatus
-from app.db.repositories.scan_repository import delete_scan, get_scan, list_scans
+from app.db.repositories.scan_repository import delete_scan, get_scan, list_scans, recover_stale_scans
 from app.schemas.finding import FindingResponse
 from app.schemas.analysis import AnalysisResponse
 from app.schemas.scan import ScanDetailResponse, ScanListResponse, ScanResponse, ScanUploadResponse
@@ -37,6 +37,7 @@ def read_scans(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> ScanListResponse:
+    recover_stale_scans(db)
     scans, total = list_scans(db, offset=offset, limit=limit)
     return ScanListResponse(
         items=[ScanResponse.model_validate(scan, from_attributes=True) for scan in scans],
@@ -48,6 +49,7 @@ def read_scans(
 
 @router.get("/scans/{scan_id}", response_model=ScanDetailResponse)
 def read_scan(scan_id: int, db: Session = Depends(get_db)) -> ScanDetailResponse:
+    recover_stale_scans(db)
     scan = get_scan(db, scan_id)
     if scan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found.")
@@ -65,6 +67,7 @@ def read_workspace():
 
 @router.delete("/scans/{scan_id}", status_code=204)
 def remove_scan(scan_id: int, db: Session = Depends(get_db)) -> Response:
+    recover_stale_scans(db)
     scan = get_scan(db, scan_id)
     if scan is None:
         raise HTTPException(404, "Scan not found.")
@@ -77,6 +80,7 @@ def remove_scan(scan_id: int, db: Session = Depends(get_db)) -> Response:
 
 @router.get("/scans/{scan_id}/report")
 def download_report(scan_id: int, db: Session = Depends(get_db)) -> JSONResponse:
+    recover_stale_scans(db)
     scan = get_scan(db, scan_id)
     if scan is None:
         raise HTTPException(404, "Scan not found.")
@@ -112,6 +116,7 @@ def read_scan_findings(
     limit: int = Query(default=100, ge=1, le=100),
     severity: FindingSeverity | None = Query(default=None),
 ) -> list[FindingResponse]:
+    recover_stale_scans(db)
     if get_scan(db, scan_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found.")
     return [

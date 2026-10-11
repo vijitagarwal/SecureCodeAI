@@ -40,6 +40,10 @@ independent SQLAlchemy session. The response contains `scan_id`, `status`,
 `filename`, `total_findings`, and an optional safe `failure_reason`.
 
 `GET /api/scans/{scan_id}` returns scan status and severity counts.
+If a queued or running record is older than `STALE_SCAN_TIMEOUT_SECONDS`, the API
+reconciles it as failed with a safe interruption reason. This protects the
+synchronous workflow from leaving a permanently active row after a worker crash;
+there is no background reaper.
 
 `GET /api/scans/{scan_id}/findings` returns normalized Bandit findings with rule, severity, confidence, file, line, description, and source snippet fields. Optional `offset` (default `0`) and `limit` (default `100`, maximum `100`) query parameters bound response size.
 

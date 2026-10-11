@@ -14,7 +14,7 @@
 | API refuses to start with provider configuration | Keep `AI_PROVIDER=mock`, or set `AI_PROVIDER=gemini` and a non-empty `GEMINI_API_KEY`. |
 | API readiness is `503` | Check PostgreSQL reachability and run `python -m alembic upgrade head` from `backend/`. |
 | Upload returns `429` | Per-worker scan capacity is full; retry after active work finishes. |
-| Scan returns `failed` | The persisted `failure_reason` is intentionally generic. Check server logs by `X-Request-ID`; source and subprocess diagnostics are not returned. |
+| Scan returns `failed` | The persisted `failure_reason` is intentionally safe. A stale queued/running row is reconciled after `STALE_SCAN_TIMEOUT_SECONDS`. Check server logs by `X-Request-ID`; source and subprocess diagnostics are not returned. |
 | Analysis returns local fallback | Gemini was unavailable or invalid; review the saved provider value `mock-fallback`. |
 
 ## Local Compose

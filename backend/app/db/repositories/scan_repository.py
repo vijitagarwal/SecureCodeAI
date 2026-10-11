@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.models import FindingSeverity, Scan, ScanStatus
 
 
@@ -33,6 +34,31 @@ def list_scans(db: Session, *, offset: int = 0, limit: int = 20) -> tuple[list[S
     )
     total = db.scalar(select(func.count(Scan.id))) or 0
     return scans, total
+
+
+def recover_stale_scans(db: Session) -> int:
+    """Fail scans whose bounded worker window has definitely elapsed.
+
+    Scans are synchronous and have no durable queue. A process crash can therefore
+    leave a running row behind. The grace window is longer than the scanner timeout
+    and applies only to queued/running records, so a healthy bounded scan is not
+    reconciled while its worker can still be executing.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=settings.stale_scan_timeout_seconds)
+    stale = list(
+        db.scalars(
+            select(Scan).where(
+                ((Scan.status == ScanStatus.RUNNING) & (Scan.started_at < cutoff))
+                | ((Scan.status == ScanStatus.QUEUED) & (Scan.created_at < cutoff))
+            )
+        )
+    )
+    for scan in stale:
+        scan.failure_reason = "The scan worker stopped before completion."
+        update_scan_status(db, scan, ScanStatus.FAILED)
+    if stale:
+        db.commit()
+    return len(stale)
 
 
 def update_scan_status(db: Session, scan: Scan, status: ScanStatus) -> Scan:

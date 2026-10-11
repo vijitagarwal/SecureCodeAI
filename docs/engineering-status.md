@@ -85,6 +85,8 @@ deterministic, with remote AI separately configured and tested at its boundary.
   IDs, and generic unexpected-error responses are covered.
 - Optional Gemini failures can persist explicitly labeled deterministic fallback
   guidance. The UI distinguishes that fallback from remote AI.
+- Stale queued/running records are reconciled as failed after a bounded grace window
+  on protected reads, so worker crashes do not leave scans permanently undeletable.
 - Full backend rerun: 120 passed, 2 skipped (PostgreSQL integration and POSIX-only
   descendant fixture on Windows). Frontend lint, typecheck, 6 interaction tests,
   production build, npm audit, YAML parsing, and diff checks pass.

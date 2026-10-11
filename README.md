@@ -134,6 +134,7 @@ scanner/provider work off the async event loop and rejects excess concurrent wor
 | `GEMINI_API_KEY` | empty | Required when `AI_PROVIDER=gemini`; never sent to the frontend |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model identifier |
 | `AI_TIMEOUT_SECONDS` | `20` | Per-provider request timeout, from 1 to 60 seconds |
+| `STALE_SCAN_TIMEOUT_SECONDS` | `120` | Grace window before an abandoned queued/running scan is reconciled as failed |
 | `MAX_AI_RESPONSE_BYTES` | `131072` | Maximum decompressed provider response size |
 | `MAX_REPORT_BYTES` | `33554432` | Maximum JSON report size before paginated retrieval is required |
 | `MAX_CONCURRENT_SCANS` | `2` | Per-worker scanner capacity |

@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -133,6 +134,27 @@ def test_scan_history_is_paginated_and_newest_first(upload_client):
     assert payload["items"][0]["id"] == second.json()["scan_id"]
     assert payload["items"][0]["scanner_names"] == ["bandit"]
     assert first.json()["scan_id"] != second.json()["scan_id"]
+
+
+def test_stale_running_scan_is_reconciled_as_failed(upload_client, monkeypatch):
+    client, session_factory, _ = upload_client
+    from app.db.repositories.scan_repository import create_scan, update_scan_status
+    from app.db.models import ScanStatus
+
+    monkeypatch.setattr("app.core.config.settings.stale_scan_timeout_seconds", 30)
+    with session_factory() as session:
+        scan = create_scan(session, "interrupted.py")
+        update_scan_status(session, scan, ScanStatus.RUNNING)
+        scan.started_at = datetime.now(timezone.utc) - timedelta(seconds=60)
+        session.commit()
+        scan_id = scan.id
+
+    response = client.get(f"/api/scans/{scan_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert response.json()["failure_reason"] == "The scan worker stopped before completion."
+    assert client.delete(f"/api/scans/{scan_id}").status_code == 204
 
 
 def test_scan_and_api_responses_include_security_headers(upload_client):

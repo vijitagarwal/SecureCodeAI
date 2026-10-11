@@ -58,6 +58,8 @@ Deterministic mock guidance or bounded Gemini provider
   directory, a reduced environment, and `--ignore-nosec`.
 - Invalid syntax, malformed scanner data, scanner errors, timeouts, and persistence
   failures become failed scans rather than clean results.
+- A bounded stale-scan window reconciles abandoned queued/running rows after a
+  worker crash when protected scan data is read.
 - Source snippets are rendered as text in React and are not interpreted as HTML.
 - Error responses and logs avoid source, credentials, subprocess stderr, and database
   internals.

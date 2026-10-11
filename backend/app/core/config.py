@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     max_upload_size_bytes: int = Field(default=5 * 1024 * 1024, gt=0, le=64 * 1024 * 1024)
     upload_dir: str = str(Path(__file__).resolve().parents[2] / ".data" / "uploads")
     scanner_timeout_seconds: int = Field(default=30, gt=0, le=300)
+    stale_scan_timeout_seconds: int = Field(default=120, ge=30, le=3600)
     ai_provider: Literal["mock", "gemini"] = "mock"
     gemini_api_key: SecretStr | None = None
     gemini_model: str = Field(default="gemini-2.5-flash", pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$")

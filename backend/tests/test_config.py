@@ -28,3 +28,8 @@ def test_wildcard_cors_is_rejected():
 def test_workspace_key_length_is_bounded():
     with pytest.raises(ValidationError):
         Settings(_env_file=None, api_key=SecretStr("x" * 257))
+
+
+def test_stale_scan_timeout_has_a_safe_floor():
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, stale_scan_timeout_seconds=29)

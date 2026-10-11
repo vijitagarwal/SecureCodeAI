@@ -38,9 +38,10 @@ health exposes generic availability; schemas/docs expose no workspace data.
 
 ## Residual review queue
 
-1. A hard process kill or host crash can leave a `running` scan record until an
-   operator reconciles it. Automatic reconciliation needs an execution lease or
-   durable queue and should not mark another worker's live scan failed.
+1. A hard process kill or host crash is reconciled on the next protected read after
+   `STALE_SCAN_TIMEOUT_SECONDS`; there is no background reaper. A future durable
+   queue/lease can make recovery immediate and coordinate multiple workers without
+   relying on a bounded stale window.
 2. Limits and semaphores are per process/worker. Shared deployments still need an
    external rate limiter, worker sizing, retention policy, and database pool policy.
 3. Docker, live PostgreSQL, Gemini, and browser/container interaction remain
