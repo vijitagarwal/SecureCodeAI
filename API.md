@@ -26,4 +26,4 @@ Findings also include conservative `cwe_id`, `cwe_name`, `owasp_category`, `reme
 
 `POST /api/findings/{finding_id}/analysis` runs the configured local structured analysis provider and stores the result. `GET /api/findings/{finding_id}/analysis` retrieves the stored analysis. A missing finding returns `404`; provider or persistence failures return a generic `503` response.
 
-Unsupported extensions return `415`; invalid names or missing files return `400`; oversized files return `413`; unknown scan IDs return `404`.
+Unsupported extensions return `415`; invalid names, missing files, or empty uploads return `400`; oversized files return `413`; unknown scan IDs return `404`.

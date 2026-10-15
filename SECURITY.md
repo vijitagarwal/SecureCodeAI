@@ -2,9 +2,9 @@
 
 ## Trust boundaries
 
-Uploaded Python is untrusted data. The API validates the filename and size, writes it under a generated UUID filename, and passes it to Bandit as one subprocess argument. The source is never imported, evaluated, or executed.
+Uploaded Python is untrusted data. The API validates the filename and size, rejects empty uploads, writes the content under a generated UUID filename, and passes it to Bandit as one subprocess argument. The source is never imported, evaluated, or executed.
 
-Bandit output is treated as untrusted scanner data. Its JSON shape and finding fields are validated before persistence, and generated temporary paths are reduced to basenames before storage. Scanner failures transition the scan to `failed` without exposing subprocess or filesystem details to the client.
+Bandit output is treated as untrusted scanner data. Its JSON shape and required finding fields are validated before persistence, and findings are associated with the original uploaded filename rather than scanner-controlled paths. Scanner failures transition the scan to `failed` without exposing subprocess or filesystem details to the client.
 
 ## Secrets
 

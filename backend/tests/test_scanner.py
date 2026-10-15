@@ -70,7 +70,25 @@ def test_bandit_rejects_malformed_json(monkeypatch, tmp_path):
         BanditScanner().scan(str(source_path))
 
 
-@pytest.mark.parametrize("payload", [[], {"results": {}}, {"results": [None]}])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        {"results": {}},
+        {"results": [None]},
+        {
+            "results": [
+                {
+                    "filename": None,
+                    "test_id": "B001",
+                    "issue_text": "invalid",
+                    "issue_severity": "LOW",
+                    "issue_confidence": "HIGH",
+                }
+            ]
+        },
+    ],
+)
 def test_bandit_rejects_invalid_result_shapes(monkeypatch, tmp_path, payload):
     source_path = tmp_path / "example.py"
     source_path.write_text("value = 1\n", encoding="utf-8")

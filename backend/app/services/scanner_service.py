@@ -33,7 +33,9 @@ def run_scan(db: Session, scan: Scan, target_path: str, scanner: SecurityScanner
                 "description": finding.description,
                 "severity": finding.severity,
                 "confidence": finding.confidence,
-                "file_path": scan.name if finding.file_path == Path(target_path).name else finding.file_path,
+                # A scan contains one uploaded source file; never persist a
+                # scanner-controlled path from outside that upload boundary.
+                "file_path": scan.name,
                 "line_number": finding.line_number,
                 "code_snippet": finding.code_snippet,
                 "raw_metadata": finding.raw_metadata,

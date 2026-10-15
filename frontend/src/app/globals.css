@@ -21,6 +21,7 @@ h1 { max-width: 620px; margin: 24px 0 12px; font-size: clamp(48px, 9vw, 88px); l
 .file-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 button { min-width: 108px; border: 0; background: #234d32; color: #fff; font: 700 13px/1 Arial, sans-serif; cursor: pointer; }
 button:disabled { background: #aab5aa; cursor: not-allowed; }
+.retry-button { min-width: auto; min-height: 36px; padding: 0 12px; margin-top: 8px; }
 .form-message { margin: 14px 0 0; font: 14px/1.5 Arial, sans-serif; }
 .form-message.error { color: #a43b2e; }
 .upload-result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0 0; }

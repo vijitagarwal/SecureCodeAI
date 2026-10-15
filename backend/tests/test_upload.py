@@ -7,10 +7,10 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.database import Base, get_db
-from app.db.models import ScanStatus
+from app.db.models import FindingConfidence, FindingSeverity, ScanStatus, SecurityAnalysis
 from app.db.repositories.scan_repository import get_scan
 from app.main import app
-from app.scanners.base import ScannerError
+from app.scanners.base import ScannerError, ScannerFinding, ScannerResult
 
 
 @pytest.fixture
@@ -127,6 +127,27 @@ def test_finding_analysis_can_be_generated_and_retrieved(upload_client):
     assert read_response.json()["status"] == "completed"
 
 
+def test_repeated_analysis_replaces_previous_record(upload_client):
+    client, session_factory, _ = upload_client
+    scan_response = client.post(
+        "/api/scans",
+        files={"file": ("example.py", b'password = "not-a-real-secret"\n', "text/x-python")},
+    )
+    finding_id = client.get(
+        f"/api/scans/{scan_response.json()['scan_id']}/findings"
+    ).json()[0]["id"]
+
+    first_response = client.post(f"/api/findings/{finding_id}/analysis")
+    second_response = client.post(f"/api/findings/{finding_id}/analysis")
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+    assert second_response.json()["finding_id"] == finding_id
+    with session_factory() as session:
+        records = session.query(SecurityAnalysis).filter_by(finding_id=finding_id).all()
+        assert len(records) == 1
+
+
 def test_analysis_for_unknown_finding_is_not_found(upload_client):
     client, _, _ = upload_client
 
@@ -238,3 +259,49 @@ def test_missing_file_is_rejected(upload_client):
     assert response.status_code == 400
     assert response.json()["detail"] == "A valid filename is required."
     assert list(upload_dir.iterdir()) == []
+
+
+def test_empty_upload_is_rejected_and_cleaned_up(upload_client):
+    client, _, upload_dir = upload_client
+
+    response = client.post(
+        "/api/scans",
+        files={"file": ("empty.py", b"", "text/x-python")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "The uploaded file cannot be empty."
+    assert list(upload_dir.iterdir()) == []
+
+
+def test_scanner_path_is_not_exposed_in_finding_response(upload_client, monkeypatch):
+    client, _, _ = upload_client
+    monkeypatch.setattr(
+        "app.services.upload_service.BanditScanner.scan",
+        lambda self, target_path: ScannerResult(
+            findings=[
+                ScannerFinding(
+                    tool="bandit",
+                    rule_id="B001",
+                    title="Test finding",
+                    description="Test finding",
+                    severity=FindingSeverity.LOW,
+                    confidence=FindingConfidence.HIGH,
+                    file_path=r"C:\server\secrets.py",
+                    line_number=1,
+                    code_snippet="value = 1",
+                    raw_metadata={"filename": r"C:\server\secrets.py"},
+                )
+            ]
+        ),
+    )
+
+    response = client.post(
+        "/api/scans",
+        files={"file": ("uploaded.py", b"value = 1\n", "text/x-python")},
+    )
+
+    assert response.status_code == 201
+    findings = client.get(f"/api/scans/{response.json()['scan_id']}/findings")
+    assert findings.status_code == 200
+    assert findings.json()[0]["file_path"] == "uploaded.py"

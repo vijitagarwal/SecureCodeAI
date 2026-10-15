@@ -64,7 +64,7 @@ If Bandit cannot produce usable JSON, the scan is marked `failed` and the tempor
 
 ### Upload route and service
 
-`POST /api/scans` accepts a multipart field named `file`. The route delegates to `upload_service.py`, which validates the filename and extension, streams at most the configured upload size, writes a UUID-generated `.py` path in the application temporary directory, creates the queued Scan, runs the scanner synchronously, and removes the temporary file in all outcomes.
+`POST /api/scans` accepts a multipart field named `file`. The route delegates to `upload_service.py`, which validates the filename and extension, rejects empty uploads, streams at most the configured upload size, writes a UUID-generated `.py` path in the application temporary directory, creates the queued Scan, runs the scanner synchronously, and removes the temporary file in all outcomes.
 
 The original filename is stored as `Scan.name` metadata. It is never used as a filesystem path. The service does not import, execute, evaluate, or dynamically load the uploaded source.
 
@@ -131,4 +131,4 @@ The production database remains PostgreSQL. When Docker/PostgreSQL is unavailabl
 
 ## Scope boundary
 
-The current frontend intentionally provides only upload, status, and finding-count verification. The full findings dashboard, filtering, cards, and detail view belong to Milestone 5 and later. Additional scanners, AI, RAG, Git integration, authentication, queues, and CI/CD are not part of the current implementation.
+The current frontend provides upload, service status with health retry, persisted finding retrieval with retry, severity filtering, classification details, source snippets, and review-only mock analysis. Additional scanners, RAG, Git integration, authentication, queues, and CI/CD are not part of the current implementation.

@@ -62,11 +62,16 @@ class BanditScanner(SecurityScanner):
         try:
             severity = FindingSeverity(str(item["issue_severity"]).upper())
             confidence = FindingConfidence(str(item["issue_confidence"]).upper())
-            file_path = str(item["filename"])
-            rule_id = str(item["test_id"])
-            title = str(item["issue_text"])
+            file_path = item["filename"]
+            rule_id = item["test_id"]
+            title = item["issue_text"]
         except (KeyError, ValueError, TypeError) as error:
             raise ScannerError("Bandit returned an invalid finding.") from error
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (file_path, rule_id, title)
+        ):
+            raise ScannerError("Bandit returned an invalid finding.")
         line_number = item.get("line_number")
         if line_number is not None and (
             isinstance(line_number, bool) or not isinstance(line_number, int) or line_number < 1

@@ -11,3 +11,7 @@ out/
 !.env.example
 *.log
 *.tsbuildinfo
+
+# Internal agent prompts and planning files
+\# SECURECODE AI*
+SECURECODE_AI_COPILOT_BUILD_PLAN.md

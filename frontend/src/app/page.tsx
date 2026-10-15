@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type HealthResponse = {
   status: string;
@@ -43,6 +43,11 @@ type Analysis = {
   confidence: number;
 };
 
+type AnalysisError = {
+  findingId: number;
+  message: string;
+};
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function Home() {
@@ -54,19 +59,44 @@ export default function Home() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [findingsLoading, setFindingsLoading] = useState(false);
+  const [findingsError, setFindingsError] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState("ALL");
   const [analysis, setAnalysis] = useState<Record<number, Analysis>>({});
   const [analysisLoading, setAnalysisLoading] = useState<number | null>(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<AnalysisError | null>(null);
+
+  const loadHealth = useCallback(async () => {
+    setError(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/health`);
+      if (!response.ok) throw new Error(`Backend returned ${response.status}`);
+      setHealth(await response.json() as HealthResponse);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "The health check failed.");
+    }
+  }, []);
 
   useEffect(() => {
-    fetch(`${apiUrl}/api/health`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`Backend returned ${response.status}`);
-        return response.json() as Promise<HealthResponse>;
-      })
-      .then(setHealth)
-      .catch((requestError: Error) => setError(requestError.message));
+    void loadHealth();
+  }, [loadHealth]);
+
+  const loadFindings = useCallback(async (scanId: number) => {
+    setFindingsLoading(true);
+    setFindingsError(null);
+    try {
+      const response = await fetch(`${apiUrl}/api/scans/${scanId}/findings`);
+      const payload = await response.json() as Finding[] & { detail?: string };
+      if (!response.ok) {
+        throw new Error(payload.detail ?? `Findings could not be loaded (${response.status})`);
+      }
+      setFindings(payload);
+    } catch (requestError) {
+      setFindingsError(
+        requestError instanceof Error ? requestError.message : "Findings could not be loaded.",
+      );
+    } finally {
+      setFindingsLoading(false);
+    }
   }, []);
 
   async function requestAnalysis(findingId: number) {
@@ -78,7 +108,10 @@ export default function Home() {
       if (!response.ok) throw new Error(payload.detail ?? `Analysis failed (${response.status})`);
       setAnalysis((current) => ({ ...current, [findingId]: payload }));
     } catch (requestError) {
-      setAnalysisError(requestError instanceof Error ? requestError.message : "Analysis failed.");
+      setAnalysisError({
+        findingId,
+        message: requestError instanceof Error ? requestError.message : "Analysis failed.",
+      });
     } finally {
       setAnalysisLoading(null);
     }
@@ -95,6 +128,7 @@ export default function Home() {
     setUploadError(null);
     setUploadResult(null);
     setFindings([]);
+    setFindingsError(null);
     setAnalysis({});
     setAnalysisError(null);
     const formData = new FormData();
@@ -105,21 +139,17 @@ export default function Home() {
       const payload = await response.json() as UploadResponse & { detail?: string };
       if (!response.ok) throw new Error(payload.detail ?? `Upload failed with status ${response.status}`);
       setUploadResult(payload);
-      setFindingsLoading(true);
-      const findingsResponse = await fetch(`${apiUrl}/api/scans/${payload.scan_id}/findings`);
-      const findingsPayload = await findingsResponse.json() as Finding[] & { detail?: string };
-      if (!findingsResponse.ok) {
-        throw new Error(findingsPayload.detail ?? `Findings could not be loaded (${findingsResponse.status})`);
-      }
-
-      setFindings(findingsPayload);
+      await loadFindings(payload.scan_id);
     } catch (requestError) {
       setUploadError(requestError instanceof Error ? requestError.message : "The upload failed.");
     } finally {
       setUploading(false);
-      setFindingsLoading(false);
     }
   }
+
+  const visibleFindings = findings.filter(
+    (finding) => severityFilter === "ALL" || finding.severity === severityFilter,
+  );
 
   return (
     <main>
@@ -133,6 +163,11 @@ export default function Home() {
       <p className="overall" role="status">
         {error ? `Unable to reach the backend: ${error}` : health ? `System status: ${health.status}` : "Checking services..."}
       </p>
+      {error && (
+        <button type="button" className="retry-button" onClick={() => void loadHealth()}>
+          Retry health check
+        </button>
+      )}
       <section className="upload-panel" aria-labelledby="upload-heading">
         <p className="eyebrow">NEXT PIPELINE STEP</p>
         <h2 id="upload-heading">Upload Python source</h2>
@@ -177,13 +212,22 @@ export default function Home() {
             </label>
           </div>
           {findingsLoading && <p className="form-message" role="status">Loading findings...</p>}
-          {!findingsLoading && findings.length === 0 && (
+          {findingsError && (
+            <div className="form-message error" role="alert">
+              <p>{findingsError}</p>
+              <button type="button" className="retry-button" onClick={() => void loadFindings(uploadResult.scan_id)}>
+                Retry loading findings
+              </button>
+            </div>
+          )}
+          {!findingsLoading && !findingsError && findings.length === 0 && (
             <p className="empty-state" role="status">No security findings were reported for this file.</p>
           )}
+          {!findingsLoading && !findingsError && findings.length > 0 && visibleFindings.length === 0 && (
+            <p className="empty-state" role="status">No findings match the selected severity.</p>
+          )}
           <div className="finding-list">
-            {findings
-              .filter((finding) => severityFilter === "ALL" || finding.severity === severityFilter)
-              .map((finding) => (
+            {visibleFindings.map((finding) => (
                 <article className="finding-card" key={finding.id}>
                   <div className="finding-card-header">
                     <span className={`severity severity-${finding.severity.toLowerCase()}`}>{finding.severity}</span>
@@ -206,7 +250,9 @@ export default function Home() {
                   >
                     {analysisLoading === finding.id ? "Analyzing..." : analysis[finding.id] ? "Re-run AI analysis" : "Analyze with SecureCode AI"}
                   </button>
-                  {analysisError && analysisLoading === null && <p className="form-message error" role="alert">{analysisError}</p>}
+                  {analysisError?.findingId === finding.id && analysisLoading === null && (
+                    <p className="form-message error" role="alert">{analysisError.message}</p>
+                  )}
                   {analysis[finding.id] && (
                     <div className="analysis-card" aria-label="AI security analysis">
                       <p className="analysis-label">AI ANALYSIS · {Math.round(analysis[finding.id].confidence * 100)}% confidence</p>

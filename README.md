@@ -65,7 +65,8 @@ Successful uploads return:
 {
 	"scan_id": 123,
 	"status": "completed",
-	"filename": "example.py"
+	"filename": "example.py",
+	"total_findings": 1
 }
 ```
 
@@ -75,7 +76,7 @@ AI analysis defaults to the deterministic local provider (`AI_PROVIDER=mock`). N
 
 Files are written to the configurable `UPLOAD_DIR`, which defaults to the operating system temporary directory under `securecode-ai`. Storage names are generated UUIDs with a `.py` suffix, never the user-provided filename. The temporary file is retained for the upcoming scanner pipeline and is not permanent user storage.
 
-Uploaded Python is treated as data only. Bandit performs static analysis through a safe subprocess; the source is never imported or executed. Invalid extensions, traversal-style filenames, missing files, oversized files, storage failures, scanner failures, and database failures are handled without exposing filesystem or database internals.
+Uploaded Python is treated as data only. Bandit performs static analysis through a safe subprocess; the source is never imported or executed. Invalid extensions, traversal-style filenames, missing or empty files, oversized files, storage failures, scanner failures, and database failures are handled without exposing filesystem or database internals.
 
 ## Bandit analysis
 
@@ -109,3 +110,5 @@ npm run build
 ```
 
 The current dashboard provides upload, scan status, finding count, severity filtering, finding locations, scanner rule IDs, confidence, CWE/OWASP classification, remediation guidance, and local mock AI analysis. The mock provider is deterministic and does not require credentials. Live provider integration, authentication, and asynchronous job queues remain outside the current local MVP.
+
+If a findings request fails after a scan completes, use the dashboard's **Retry loading findings** control rather than uploading the file again. The health panel similarly provides a retry control for transient backend availability errors.

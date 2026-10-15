@@ -52,6 +52,11 @@ async def upload_python_file(db: Session, upload: UploadFile | None) -> ScanUplo
                         detail="The uploaded file exceeds the configured size limit.",
                     )
                 target.write(chunk)
+        if bytes_written == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded file cannot be empty.",
+            )
 
         db.commit()
         db.refresh(scan)
