@@ -17,3 +17,8 @@ out/
 *.db
 test-results/
 playwright-report/
+
+# Internal planning and agent prompt files
+AI_BUILD_CONTEXT.md
+SECURECODE_AI_COPILOT_BUILD_PLAN.md
+*AUTONOMOUS ENGINE*.txt
